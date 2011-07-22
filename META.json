@@ -1,0 +1,46 @@
+{
+   "abstract" : "Speed the output of a CGI Program",
+   "author" : [
+      "Nigel Horne <njh@bandsman.co.uk>"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "ExtUtils::MakeMaker version 6.58, CPAN::Meta::Converter version 2.110930001",
+   "license" : [
+      "open_source"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "CGI-Buffer",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "inc"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : 0
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : 0
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "CGI::Info" : "0.1",
+            "Compress::Zlib" : 0,
+            "IO::CaptureOutput" : 0,
+            "IO::String" : 0,
+            "MD5" : 0,
+            "Test::More" : "0.82"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "version" : "0.01"
+}

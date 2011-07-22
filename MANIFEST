@@ -1,0 +1,16 @@
+Changes
+MANIFEST
+Makefile.PL
+README
+ignore.txt
+lib/CGI/Buffer.pm
+META.yml                                 Module meta-data (added by MakeMaker)
+t/00-load.t
+t/boiler.t
+t/coverage.t
+t/kwalitee.t
+t/manifest.t
+t/pod-cm.t
+t/pod.t
+t/port.t
+META.json                                Module JSON meta-data (added by MakeMaker)
