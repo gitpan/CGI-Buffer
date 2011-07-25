@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.03	Mon Jul 25 16:38:00 EDT 2011
+	Improvements to optimise_content
+
 0.02	Sun Jul 24 20:18:15 EDT 2011
 	If protocol isn't known, assume http
 
