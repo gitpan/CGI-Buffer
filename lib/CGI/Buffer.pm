@@ -14,11 +14,11 @@ CGI::Buffer - Speed the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 =head1 SYNOPSIS
 
@@ -34,8 +34,9 @@ package, and it does the rest.
     ...
 
 To also make use of server caches, that is to say to save regenerating output
-when a client asks you for the same data, you will need to create a cache, but
-that's simple:
+when different clients ask you for the same data,
+you will need to create a cache,
+but that's simple:
 
     use CGI::Buffer;
     use CHI;
@@ -104,6 +105,10 @@ END {
 
 		my $href = $i->host_name();
 		my $protocol = $i->protocol();
+
+		unless($protocol) {
+			$protocol = 'http';
+		}
 
 		$body =~ s/<a\s+?href="$protocol:\/\/$href"/<a href="\//gim;
 
@@ -228,6 +233,7 @@ correct data.
 
 Mod_deflate can confuse this when comopressing output. Ensure that deflation is
 off for .pl files:
+
     SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|pl)$ no-gzip dont-vary
 
 Please report any bugs or feature requests to C<bug-cgi-info at rt.cpan.org>,

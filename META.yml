@@ -24,4 +24,4 @@ requires:
   IO::String: 0
   MD5: 0
   Test::More: 0.82
-version: 0.01
+version: 0.02
