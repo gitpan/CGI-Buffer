@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.04
+	Fixed over zealous optimise_content
+
 0.03	Mon Jul 25 16:38:00 EDT 2011
 	Improvements to optimise_content
 

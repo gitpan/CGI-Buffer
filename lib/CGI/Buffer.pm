@@ -14,11 +14,11 @@ CGI::Buffer - Speed the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 =head1 SYNOPSIS
 
@@ -95,11 +95,11 @@ END {
 	}
 
 	if($optimise_content && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/)) {
-		$body =~ s/^\s+|\s+$//g;
-		$body =~ s/\s+/ /gm;
 		$body =~ s/\r\n/\n/gm;
 		$body =~ s/\n+/\n/gm;
 		$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gim;
+		$body =~ s/\n\s+|\s+\n//g;
+		$body =~ s/\s+/ /;
 		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/gm;
 		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/gm;
 
