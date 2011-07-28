@@ -1,6 +1,11 @@
 Revision history for CGI-Buffer
 
-0.04
+0.05	Wed Jul 27 23:07:50 EDT 2011
+	Fix the documentation
+	Fix calls to is_cached() when there is no cache.
+	Added new optimise_content
+
+0.04	Wed Jul 27 10:19:41 EDT 2011
 	Fixed over zealous optimise_content
 
 0.03	Mon Jul 25 16:38:00 EDT 2011

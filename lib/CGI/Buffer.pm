@@ -10,20 +10,20 @@ use CGI::Info;
 
 =head1 NAME
 
-CGI::Buffer - Speed the output of a CGI Program
+CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.04
+Version 0.05
 
 =cut
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 =head1 SYNOPSIS
 
-CGI::Buffer speeds the output of CGI programs by making use of client and
-server caches nearly seemlessly.
+CGI::Buffer speeds the output of CGI programs by compressing output and
+by nearly seemlessley making use of client and server caches.
 
 To make use of client caches, that is to say to reduce needless calls to
 your server asking for the same data, all you need to do is to include the
@@ -35,15 +35,15 @@ package, and it does the rest.
 
 To also make use of server caches, that is to say to save regenerating output
 when different clients ask you for the same data,
-you will need to create a cache,
-but that's simple:
+you will need to create a cache.
+But that's simple:
 
     use CGI::Buffer;
     use CHI;
 
     # Put this at the top before you output anything
     CGI::Buffer::set_options(
-	cache => CHI->new(driver => 'File');
+	cache => CHI->new(driver => 'File')
     );
     if(CGI::Buffer::is_cached()) {
 	exit;
@@ -95,13 +95,15 @@ END {
 	}
 
 	if($optimise_content && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/)) {
-		$body =~ s/\r\n/\n/gm;
-		$body =~ s/\n+/\n/gm;
+		$body =~ s/\r\n/\n/g;
+		$body =~ s/\n+/\n/g;
 		$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gim;
 		$body =~ s/\n\s+|\s+\n//g;
 		$body =~ s/\s+/ /;
-		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/gm;
-		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/gm;
+		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
+		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
+		$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
+		$body =~ s/\s+\<p\>/\<p\>/gi;
 
 		my $i = CGI::Info->new();
 
@@ -150,6 +152,8 @@ END {
 
 			if(!defined($body)) {
 				$body = $cache->get("CGI::Buffer $key");
+				# my $mtime = $cache->age("CGI::Buffer $key");
+				# print "Last-Modified: $mtime\n";
 			} else {
 				$cache->set("CGI::Buffer $key", $body, 600);
 			}
@@ -178,10 +182,10 @@ Sets the options.
     # By default, generate_tag and compress_content are both ON and
     # optimise_content is OFF
     CGI::Buffer::set_options(
-	generate_etag => 1,
-	compress_content => 1,
-	optimise_content => 0,
-	cache => CHI->new(driver => 'File');
+	generate_etag => 1,	# make good use of client's cache
+	compress_content => 1,	# if gzip the output
+	optimise_content => 0,	# optimise your program's HTML
+	cache => CHI->new(driver => 'File')	# cache requests
     );
 
 =cut
@@ -209,7 +213,7 @@ Returns true if the output is cached.
 
     # Put this toward the top of your program before you do anything
     CGI::Buffer::set_options(
-	cache => CHI->new(driver => 'File');
+	cache => CHI->new(driver => 'File')
     );
     if(CGI::Buffer::is_cached()) {
 	exit;
@@ -218,6 +222,9 @@ Returns true if the output is cached.
 =cut
 
 sub is_cached {
+	unless($cache) {
+		return 0;
+	}
 	my $key = _generate_key();
 
 	return $cache->get("CGI::Buffer $key") ? 1 : 0;
@@ -233,12 +240,12 @@ There are no real tests because I haven't yet worked out how to capture the
 output that a module outputs at the END stage to check if it's outputting the
 correct data.
 
-Mod_deflate can confuse this when comopressing output. Ensure that deflation is
+Mod_deflate can confuse this when compressing output. Ensure that deflation is
 off for .pl files:
 
     SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|pl)$ no-gzip dont-vary
 
-Please report any bugs or feature requests to C<bug-cgi-info at rt.cpan.org>,
+Please report any bugs or feature requests to C<bug-cgi-buffer at rt.cpan.org>,
 or through the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=CGI-Buffer>.
 I will be notified, and then you'll automatically be notified of progress on
 your bug as I make changes.
@@ -283,7 +290,7 @@ http://www.mnot.net/cgi_buffer.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2011 Nigel Horne.
+Copyright 2011 Nigel Horne.
 
 This program is released under the following licence: GPL
 

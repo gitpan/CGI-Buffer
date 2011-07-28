@@ -1,5 +1,5 @@
 ---
-abstract: 'Speed the output of a CGI Program'
+abstract: 'Optimise the output of a CGI Program'
 author:
   - 'Nigel Horne <njh@bandsman.co.uk>'
 build_requires:
@@ -24,4 +24,4 @@ requires:
   IO::String: 0
   MD5: 0
   Test::More: 0.82
-version: 0.04
+version: 0.05
