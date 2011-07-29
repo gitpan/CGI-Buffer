@@ -17,7 +17,7 @@ WriteMakefile(
 	'MD5' => 0,
 	'IO::String' => 0,
 	'Compress::Zlib' => 0,
-	'CGI::Info' => 0.10,	# Needs as_string and protocol
+	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'CGI-Buffer-*' },

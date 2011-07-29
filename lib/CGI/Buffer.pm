@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.05
+Version 0.06
 
 =cut
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 =head1 SYNOPSIS
 
@@ -59,6 +59,8 @@ our $generate_etag = 1;
 our $compress_content = 1;
 our $optimise_content = 0;
 our $cache;
+our $cache_key;
+our $info;
 
 BEGIN {
 	use Exporter();
@@ -77,7 +79,7 @@ END {
 	read($CGI::Buffer::buf, $buf, $pos);
 	($headers, $body) = split /\r?\n\r?\n/, $buf, 2;
 
-	unless($headers) {
+	unless($headers || is_cached()) {
 		# There was no output
 		return;
 	}
@@ -87,28 +89,32 @@ END {
 		$send_body = 1;
 	}
 
-	foreach my $header (split(/\r?\n/, $headers)) {
-		($header_name, $header_value) = split /\:\s*/, $header, 2;
-		if (lc($header_name) eq 'content-type') {
-			@content_type = split /\//, $header_value, 2;
+	if($headers) {
+		foreach my $header (split(/\r?\n/, $headers)) {
+			($header_name, $header_value) = split /\:\s*/, $header, 2;
+			if (lc($header_name) eq 'content-type') {
+				@content_type = split /\//, $header_value, 2;
+			}
 		}
 	}
 
-	if($optimise_content && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/)) {
+	if($optimise_content && defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
 		$body =~ s/\r\n/\n/g;
 		$body =~ s/\n+/\n/g;
 		$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gim;
-		$body =~ s/\n\s+|\s+\n//g;
+		$body =~ s/\n\s+|\s+\n/\n/g;
 		$body =~ s/\s+/ /;
 		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
 		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
 		$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
 		$body =~ s/\s+\<p\>/\<p\>/gi;
 
-		my $i = CGI::Info->new();
+		unless(defined($info)) {
+			$info = CGI::Info->new();
+		}
 
-		my $href = $i->host_name();
-		my $protocol = $i->protocol();
+		my $href = $info->host_name();
+		my $protocol = $info->protocol();
 
 		unless($protocol) {
 			$protocol = 'http';
@@ -120,19 +126,16 @@ END {
 		$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\//gim;
 	}
 
-	if($compress_content && $ENV{'HTTP_ACCEPT_ENCODING'}) {
-		foreach my $encoding ('x-gzip', 'gzip') {
-			$_ = lc($ENV{'HTTP_ACCEPT_ENCODING'});
-			if (m/$encoding/i && lc($content_type[0]) eq 'text') {
-				$body = Compress::Zlib::memGzip($body);
-				push @o, "Content-Encoding: $encoding";
-				push @o, "Vary: Accept-Encoding";
-				last;
-			}
-		}
+	my $isgzipped = 0;
+	if(defined($body) && _should_gzip()) {
+		$body = Compress::Zlib::memGzip($body);
+		push @o, "Content-Encoding: $encoding";
+		push @o, "Vary: Accept-Encoding";
+		$isgzipped = 1;
+		last;
 	}
 
-	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1')) {
+	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
 		if($generate_etag) {
 			$etag = '"' . MD5->hexhash($body) . '"';
 			push @o, "ETag: $etag";
@@ -150,12 +153,16 @@ END {
 		if($cache) {
 			my $key = _generate_key();
 
+			# Maintain separate caches for gzipped and non gzipped so that
+			# browsers get what they ask for and can support
 			if(!defined($body)) {
-				$body = $cache->get("CGI::Buffer $key");
+				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
+				$headers = $cache->get("CGI::Buffer/$key/headers");
 				# my $mtime = $cache->age("CGI::Buffer $key");
 				# print "Last-Modified: $mtime\n";
 			} else {
-				$cache->set("CGI::Buffer $key", $body, 600);
+				$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
+				$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
 			}
 		}
 		push @o, "Content-Length: " . length($body);
@@ -170,8 +177,13 @@ END {
 
 # Create a key for the cache
 sub _generate_key {
-	my $i = CGI::Info->new();
-	return $i->script_name() . ' ' . $i->params();
+	if($cache_key) {
+		return $cache_key;
+	}
+	unless(defined($info)) {
+		$info = CGI::Info->new();
+	}
+	return $info->script_name() . '/' . $info->as_string();
 }
 
 =head2 set_options
@@ -185,8 +197,12 @@ Sets the options.
 	generate_etag => 1,	# make good use of client's cache
 	compress_content => 1,	# if gzip the output
 	optimise_content => 0,	# optimise your program's HTML
-	cache => CHI->new(driver => 'File')	# cache requests
+	cache => CHI->new(driver => 'File'),	# cache requests
+	cache_key => 'string'	# key for the cache
     );
+
+If no cache_key is given, one will be generatated which may not be unique.
+The cache_key should be a unique value dependent upon the values set by the browser.
 
 =cut
 
@@ -205,6 +221,9 @@ sub set_options {
 	if(defined($params{cache})) {
 		$cache = $params{cache};
 	}
+	if(defined($params{cache_key})) {
+		$cache_key = $params{cache_key};
+	}
 }
 
 =head2 is_cached
@@ -212,10 +231,22 @@ sub set_options {
 Returns true if the output is cached.
 
     # Put this toward the top of your program before you do anything
+
+    # Example key generation - use whatever you want as something
+    # unique for this call, so that subsequent calls with the same
+    # values match something in the cache
+    use CGI::Info;
+    use CGI::Lingua;
+
+    my $i = CGI::Info->new();
+    my $l = CGI::Lingua->new(supported => ['en']);
+
     CGI::Buffer::set_options(
-	cache => CHI->new(driver => 'File')
+	cache => CHI->new(driver => 'File'),
+	cache_key => $i->script_name() . '/' . $i->as_string() . '/' $i->language()
     );
     if(CGI::Buffer::is_cached()) {
+	# Output will be retrieved from the cache and sent automatically
 	exit;
     }
 
@@ -227,7 +258,21 @@ sub is_cached {
 	}
 	my $key = _generate_key();
 
-	return $cache->get("CGI::Buffer $key") ? 1 : 0;
+	my $isgzipped = _should_gzip();
+	return $cache->get("CGI::Buffer/$key/$isgzipped") ? 1 : 0;
+}
+
+sub _should_gzip {
+	if($compress_content && $ENV{'HTTP_ACCEPT_ENCODING'}) {
+		foreach my $encoding ('x-gzip', 'gzip') {
+			$_ = lc($ENV{'HTTP_ACCEPT_ENCODING'});
+			if (m/$encoding/i && lc($content_type[0]) eq 'text') {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 =head1 AUTHOR
