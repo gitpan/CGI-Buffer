@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.07
+Version 0.08
 
 =cut
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 =head1 SYNOPSIS
 
@@ -127,11 +127,14 @@ END {
 	}
 
 	my $isgzipped = 0;
-	if(defined($body) && _should_gzip()) {
-		$body = Compress::Zlib::memGzip($body);
-		push @o, "Content-Encoding: $encoding";
-		push @o, "Vary: Accept-Encoding";
-		$isgzipped = 1;
+	if(defined($body)) {
+		my $encoding = _should_gzip();
+		if(length($encoding) > 0) {
+			$body = Compress::Zlib::memGzip($body);
+			push @o, "Content-Encoding: $encoding";
+			push @o, "Vary: Accept-Encoding";
+			$isgzipped = 1;
+		}
 	}
 
 	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
@@ -266,12 +269,12 @@ sub _should_gzip {
 		foreach my $encoding ('x-gzip', 'gzip') {
 			$_ = lc($ENV{'HTTP_ACCEPT_ENCODING'});
 			if (m/$encoding/i && lc($content_type[0]) eq 'text') {
-				return 1;
+				return $encoding;
 			}
 		}
 	}
 
-	return 0;
+	return '';
 }
 
 =head1 AUTHOR
