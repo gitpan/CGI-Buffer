@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.07	Sun Jul 31 20:06:52 EDT 2011
+	Fixed compilation error
+
 0.06	Fri Jul 29 18:04:56 EDT 2011
 	Added cache_key option
 	Fixed problem with cache delivering gzipped version to non gzip

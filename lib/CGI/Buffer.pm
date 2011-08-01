@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.06
+Version 0.07
 
 =cut
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 =head1 SYNOPSIS
 
@@ -132,7 +132,6 @@ END {
 		push @o, "Content-Encoding: $encoding";
 		push @o, "Vary: Accept-Encoding";
 		$isgzipped = 1;
-		last;
 	}
 
 	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
