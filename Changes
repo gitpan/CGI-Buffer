@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.09	Tue Aug  2 11:58:47 EDT 2011
+	Fix problem with HEAD which meant that the headers weren't being sent
+	optimise_content: Add optimisations for <br> and <div>
+
 0.08	Mon Aug  1 10:57:32 EDT 2011
 	Ensure that the correct encoding mechanism is passed to the client
 

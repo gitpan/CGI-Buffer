@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.08
+Version 0.09
 
 =cut
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 =head1 SYNOPSIS
 
@@ -102,11 +102,15 @@ END {
 		$body =~ s/\r\n/\n/g;
 		$body =~ s/\n+/\n/g;
 		$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gim;
+		$body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gim;
 		$body =~ s/\n\s+|\s+\n/\n/g;
 		$body =~ s/\s+/ /;
 		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
 		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
 		$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
+		$body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
+		$body =~ s/\<br\>\s/\<br\>/gi;
+		$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
 		$body =~ s/\s+\<p\>/\<p\>/gi;
 
 		unless(defined($info)) {
@@ -151,26 +155,26 @@ END {
 		}
 	}
 
-	if($send_body) {
-		if($cache) {
-			my $key = _generate_key();
+	if($cache) {
+		my $key = _generate_key();
 
-			# Maintain separate caches for gzipped and non gzipped so that
-			# browsers get what they ask for and can support
-			if(!defined($body)) {
-				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
-				$headers = $cache->get("CGI::Buffer/$key/headers");
-				# my $mtime = $cache->age("CGI::Buffer $key");
-				# print "Last-Modified: $mtime\n";
-			} else {
-				$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
-				$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
-			}
+		# Maintain separate caches for gzipped and non gzipped so that
+		# browsers get what they ask for and can support
+		if(!defined($body)) {
+			$body = $cache->get("CGI::Buffer/$key/$isgzipped");
+			$headers = $cache->get("CGI::Buffer/$key/headers");
+			# my $mtime = $cache->age("CGI::Buffer $key");
+			# print "Last-Modified: $mtime\n";
+		} else {
+			$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
+			$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
 		}
-		push @o, "Content-Length: " . length($body);
-		push @o, $headers;
-		push @o, "";
+	}
+	push @o, "Content-Length: " . length($body);
+	push @o, $headers;
+	push @o, "";
 
+	if($send_body) {
 		push @o, $body;
 	}
 
