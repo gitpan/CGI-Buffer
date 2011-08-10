@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.09
+Version 0.10
 
 =cut
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 =head1 SYNOPSIS
 
@@ -66,7 +66,7 @@ BEGIN {
 	use Exporter();
 	use vars qw($VERSION $buf $pos $headers $header $header_name $encoding
 				$header_value $body @content_type $etag $send_body @o
-				$i);
+				$send_headers $i);
 
 	$CGI::Buffer::buf = IO::String->new;
 	$CGI::Buffer::old_buf = select($CGI::Buffer::buf);
@@ -88,6 +88,7 @@ END {
 	} else {
 		$send_body = 1;
 	}
+	$send_headers = 1;
 
 	if($headers) {
 		foreach my $header (split(/\r?\n/, $headers)) {
@@ -103,6 +104,10 @@ END {
 		$body =~ s/\n+/\n/g;
 		$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gim;
 		$body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gim;
+		$body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gim;
+		$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;	# TODO <p class=
+		$body =~ s/\s+\<\/html/\<\/html/im;
+		$body =~ s/\s+\<\/body/\<\/body/im;
 		$body =~ s/\n\s+|\s+\n/\n/g;
 		$body =~ s/\s+/ /;
 		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
@@ -148,8 +153,8 @@ END {
 			if ($ENV{'HTTP_IF_NONE_MATCH'}) {
 				if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
 					push @o, "Status: 304 Not Modified";
-					push @o, "";
 					$send_body = 0;
+					$send_headers = 0;
 				}
 			}
 		}
@@ -161,7 +166,9 @@ END {
 		# Maintain separate caches for gzipped and non gzipped so that
 		# browsers get what they ask for and can support
 		if(!defined($body)) {
-			$body = $cache->get("CGI::Buffer/$key/$isgzipped");
+			if($send_body) {
+				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
+			}
 			$headers = $cache->get("CGI::Buffer/$key/headers");
 			# my $mtime = $cache->age("CGI::Buffer $key");
 			# print "Last-Modified: $mtime\n";
@@ -170,8 +177,12 @@ END {
 			$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
 		}
 	}
-	push @o, "Content-Length: " . length($body);
-	push @o, $headers;
+	if($send_headers) {
+		push @o, $headers;
+		if($send_body) {
+			push @o, "Content-Length: " . length($body);
+		}
+	}
 	push @o, "";
 
 	if($send_body) {

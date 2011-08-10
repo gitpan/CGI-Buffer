@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.10	Wed Aug 10 13:31:46 EDT 2011
+	Optimise HEAD handling
+
 0.09	Tue Aug  2 11:58:47 EDT 2011
 	Fix problem with HEAD which meant that the headers weren't being sent
 	optimise_content: Add optimisations for <br> and <div>
