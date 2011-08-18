@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.10
+Version 0.11
 
 =cut
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 =head1 SYNOPSIS
 
@@ -112,7 +112,11 @@ END {
 		$body =~ s/\s+/ /;
 		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
 		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
+		$body =~ s/\<p\>\s/\<p\>/gi;
 		$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
+		$body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
+		$body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
+		$body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
 		$body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
 		$body =~ s/\<br\>\s/\<br\>/gi;
 		$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
@@ -260,7 +264,7 @@ Returns true if the output is cached.
 
     CGI::Buffer::set_options(
 	cache => CHI->new(driver => 'File'),
-	cache_key => $i->script_name() . '/' . $i->as_string() . '/' $i->language()
+	cache_key => $i->script_name() . '/' . $i->as_string() . '/' . $i->language()
     );
     if(CGI::Buffer::is_cached()) {
 	# Output will be retrieved from the cache and sent automatically

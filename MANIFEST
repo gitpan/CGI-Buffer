@@ -8,9 +8,11 @@ META.yml                                 Module meta-data (added by MakeMaker)
 t/00-load.t
 t/boiler.t
 t/coverage.t
+t/critic.t
 t/kwalitee.t
 t/manifest.t
 t/pod-cm.t
 t/pod.t
 t/port.t
+t/snippets.t
 META.json                                Module JSON meta-data (added by MakeMaker)
