@@ -9,6 +9,7 @@ t/00-load.t
 t/boiler.t
 t/coverage.t
 t/critic.t
+t/is_cached.t
 t/kwalitee.t
 t/manifest.t
 t/pod-cm.t

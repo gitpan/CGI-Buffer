@@ -18,6 +18,7 @@ WriteMakefile(
 	'IO::String' => 0,
 	'Compress::Zlib' => 0,
 	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol
+	'HTML::Clean' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'CGI-Buffer-*' },

@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.12	Tue Sep  6 14:55:17 EDT 2011
+	Improved handling of HEAD
+	Added t/is_cached.t
+	Use HTML::Clean
+
 0.11	Thu Aug 18 16:10:27 EDT 2011
 	Optimise table rows
 	Added t/critit.t

@@ -7,6 +7,7 @@ use MD5;
 use IO::String;
 use Compress::Zlib;
 use CGI::Info;
+use HTML::Clean;
 
 =head1 NAME
 
@@ -14,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.11
+Version 0.12
 
 =cut
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 =head1 SYNOPSIS
 
@@ -121,6 +122,7 @@ END {
 		$body =~ s/\<br\>\s/\<br\>/gi;
 		$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
 		$body =~ s/\s+\<p\>/\<p\>/gi;
+		$body =~ s/\s+\<script/\<script/gi;
 
 		unless(defined($info)) {
 			$info = CGI::Info->new();
@@ -137,6 +139,12 @@ END {
 
 		# TODO: <img border=0 src=...>
 		$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\//gim;
+
+		my $h = new HTML::Clean($body);
+		# $h->compat();
+		$h->strip();
+		my $ref = $h->data();
+		$body = $$ref;
 	}
 
 	my $isgzipped = 0;
@@ -183,17 +191,21 @@ END {
 	}
 	if($send_headers) {
 		push @o, $headers;
-		if($send_body) {
+		if($body) {
 			push @o, "Content-Length: " . length($body);
 		}
 	}
-	push @o, "";
 
 	if($send_body) {
+		push @o, "";
 		push @o, $body;
 	}
 
 	print join("\r\n", @o);
+
+	unless($send_body) {
+		print "\r\n";
+	}
 }
 
 # Create a key for the cache
@@ -356,10 +368,6 @@ http://www.mnot.net/cgi_buffer.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2011 Nigel Horne.
-
-This program is released under the following licence: GPL
-
 The licence for cgi_buffer is:
 
     "(c) 2000 Copyright Mark Nottingham <mnot@pobox.com>
@@ -368,6 +376,9 @@ The licence for cgi_buffer is:
     provided that this copyright notice remain intact.
 
     This software is provided 'as is' without warranty of any kind."
+
+The reset of the program is Copyright 2011 Nigel Horne,
+and is released under the following licence: GPL
 
 =cut
 
