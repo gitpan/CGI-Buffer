@@ -4,8 +4,8 @@
 
 use strict;
 use warnings;
-use Test::More tests => 4;
-use Test::NoWarnings;
+use Test::More tests => 3;
+# use Test::NoWarnings;	# HTML::Clean has them
 
 BEGIN {
 	use_ok('CGI::Buffer');

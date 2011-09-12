@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.12
+Version 0.13
 
 =cut
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 =head1 SYNOPSIS
 
@@ -110,6 +110,7 @@ END {
 		$body =~ s/\s+\<\/html/\<\/html/im;
 		$body =~ s/\s+\<\/body/\<\/body/im;
 		$body =~ s/\n\s+|\s+\n/\n/g;
+		$body =~ s/\t+/ /g;
 		$body =~ s/\s+/ /;
 		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
 		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
@@ -123,6 +124,7 @@ END {
 		$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
 		$body =~ s/\s+\<p\>/\<p\>/gi;
 		$body =~ s/\s+\<script/\<script/gi;
+		$body =~ s/\<td\>\s+/\<td\>/gi;
 
 		unless(defined($info)) {
 			$info = CGI::Info->new();
@@ -140,7 +142,7 @@ END {
 		# TODO: <img border=0 src=...>
 		$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\//gim;
 
-		my $h = new HTML::Clean($body);
+		my $h = new HTML::Clean(\$body);
 		# $h->compat();
 		$h->strip();
 		my $ref = $h->data();
