@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.13
+Version 0.14
 
 =cut
 
-our $VERSION = '0.13';
+our $VERSION = '0.14';
 
 =head1 SYNOPSIS
 
@@ -193,7 +193,7 @@ END {
 	}
 	if($send_headers) {
 		push @o, $headers;
-		if($body) {
+		if($body && $send_body) {
 			push @o, "Content-Length: " . length($body);
 		}
 	}
@@ -206,7 +206,7 @@ END {
 	print join("\r\n", @o);
 
 	unless($send_body) {
-		print "\r\n";
+		print "\r\n\r\n";
 	}
 }
 
