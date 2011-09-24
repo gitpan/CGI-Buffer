@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.14
+Version 0.15
 
 =cut
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 =head1 SYNOPSIS
 
@@ -203,7 +203,9 @@ END {
 		push @o, $body;
 	}
 
-	print join("\r\n", @o);
+	if(scalar @o) {
+		print join("\r\n", @o);
+	}
 
 	unless($send_body) {
 		print "\r\n\r\n";
@@ -278,7 +280,7 @@ Returns true if the output is cached.
 
     CGI::Buffer::set_options(
 	cache => CHI->new(driver => 'File'),
-	cache_key => $i->script_name() . '/' . $i->as_string() . '/' . $i->language()
+	cache_key => $i->script_name() . '/' . $i->as_string() . '/' . $l->language()
     );
     if(CGI::Buffer::is_cached()) {
 	# Output will be retrieved from the cache and sent automatically
