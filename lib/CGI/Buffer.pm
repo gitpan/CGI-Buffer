@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.15
+Version 0.16
 
 =cut
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 
 =head1 SYNOPSIS
 
@@ -149,17 +149,9 @@ END {
 		$body = $$ref;
 	}
 
-	my $isgzipped = 0;
-	if(defined($body)) {
-		my $encoding = _should_gzip();
-		if(length($encoding) > 0) {
-			$body = Compress::Zlib::memGzip($body);
-			push @o, "Content-Encoding: $encoding";
-			push @o, "Vary: Accept-Encoding";
-			$isgzipped = 1;
-		}
-	}
-
+	# Generate the eTag before compressing, since the compressed data
+	# includes the mtime field which changes thus causing a different
+	# Etag to be generated
 	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
 		if($generate_etag) {
 			$etag = '"' . MD5->hexhash($body) . '"';
@@ -174,6 +166,17 @@ END {
 		}
 	}
 
+	my $isgzipped = 0;
+	if(defined($body)) {
+		my $encoding = _should_gzip();
+		if(length($encoding) > 0) {
+			$body = Compress::Zlib::memGzip($body);
+			push @o, "Content-Encoding: $encoding";
+			push @o, "Vary: Accept-Encoding";
+			$isgzipped = 1;
+		}
+	}
+
 	if($cache) {
 		my $key = _generate_key();
 
@@ -184,9 +187,11 @@ END {
 				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
 			}
 			$headers = $cache->get("CGI::Buffer/$key/headers");
+			push @o, "X-CGI-Buffer-$VERSION: Hit\n";
 			# my $mtime = $cache->age("CGI::Buffer $key");
-			# print "Last-Modified: $mtime\n";
+			# push @o,"Last-Modified: $mtime\n";
 		} else {
+			push @o, "X-CGI-Buffer-$VERSION: Miss\n";
 			$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
 			$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
 		}
@@ -230,6 +235,7 @@ Sets the options.
     # Put this toward the top of your program before you do anything
     # By default, generate_tag and compress_content are both ON and
     # optimise_content is OFF
+    use CGI::Buffer;
     CGI::Buffer::set_options(
 	generate_etag => 1,	# make good use of client's cache
 	compress_content => 1,	# if gzip the output
@@ -265,7 +271,9 @@ sub set_options {
 
 =head2 is_cached
 
-Returns true if the output is cached.
+Returns true if the output is cached. If it is then it means that all of the
+expensive routines in the CGI script can be by-passed because we already have
+the result stored in the cache.
 
     # Put this toward the top of your program before you do anything
 
@@ -278,6 +286,9 @@ Returns true if the output is cached.
     my $i = CGI::Info->new();
     my $l = CGI::Lingua->new(supported => ['en']);
 
+    # To use server side caching you must give the cache argument, however
+    # the cache_key argument is optional - if you don't give one then one will
+    # be generated for you
     CGI::Buffer::set_options(
 	cache => CHI->new(driver => 'File'),
 	cache_key => $i->script_name() . '/' . $i->as_string() . '/' . $l->language()
@@ -286,6 +297,10 @@ Returns true if the output is cached.
 	# Output will be retrieved from the cache and sent automatically
 	exit;
     }
+    # Not in the cache, so now do our expensive computing to generate the
+    # results
+    print "Content-type: text/html\n";
+    # ...
 
 =cut
 

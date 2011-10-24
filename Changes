@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.16	Mon Oct 24 09:54:09 EDT 2011
+	Improved client side caching
+
 0.15	Sat Sep 24 16:08:32 EDT 2011
 	Improved error handling
 
