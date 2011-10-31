@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.18	Mon Oct 31 17:41:48 EDT 2011
+	Small optimisations
+	Fix is_cache handling of gzipped content_encoding
+
 0.17	Mon Oct 31 16:09:09 EDT 2011
 	Fix bug in X-CGI-Buffer header
 	Carp if you're trying to set an unsafe option after output has been

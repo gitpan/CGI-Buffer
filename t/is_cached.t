@@ -33,6 +33,6 @@ CACHED: {
 
 		CGI::Buffer::set_options(cache => $cache, cache_key => 'xyzzy');
 
-		ok(CGI::Buffer::is_cached() == 0);
+		ok(!CGI::Buffer::is_cached());
 	}
 }

@@ -16,11 +16,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.17
+Version 0.18
 
 =cut
 
-our $VERSION = '0.17';
+our $VERSION = '0.18';
 
 =head1 SYNOPSIS
 
@@ -99,6 +99,10 @@ END {
 				@content_type = split /\//, $header_value, 2;
 			}
 		}
+	}
+
+	if(defined($body) && (length($body) == 0)) {
+		$body = undef;
 	}
 
 	if($optimise_content && defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
@@ -319,9 +323,13 @@ sub is_cached {
 		return 0;
 	}
 	my $key = _generate_key();
+	my $encoding = _should_gzip();
+	my $isgzipped = (length($encoding) > 0) ? 1 : 0;
 
-	my $isgzipped = _should_gzip();
-	return $cache->get("CGI::Buffer/$key/$isgzipped") ? 1 : 0;
+	# FIXME: It is remotely possible that is_valid will succesed, and the
+	#	cache expires before the above get, causing the get to possibly
+	#	fail
+	return $cache->is_valid("CGI::Buffer/$key/$isgzipped");
 }
 
 sub _should_gzip {
