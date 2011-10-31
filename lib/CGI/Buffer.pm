@@ -8,6 +8,7 @@ use IO::String;
 use Compress::Zlib;
 use CGI::Info;
 use HTML::Clean;
+use Carp;
 
 =head1 NAME
 
@@ -15,11 +16,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.16
+Version 0.17
 
 =cut
 
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 
 =head1 SYNOPSIS
 
@@ -187,11 +188,11 @@ END {
 				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
 			}
 			$headers = $cache->get("CGI::Buffer/$key/headers");
-			push @o, "X-CGI-Buffer-$VERSION: Hit\n";
+			push @o, "X-CGI-Buffer-$VERSION: Hit";
 			# my $mtime = $cache->age("CGI::Buffer $key");
 			# push @o,"Last-Modified: $mtime\n";
 		} else {
-			push @o, "X-CGI-Buffer-$VERSION: Miss\n";
+			push @o, "X-CGI-Buffer-$VERSION: Miss";
 			$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
 			$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
 		}
@@ -203,12 +204,12 @@ END {
 		}
 	}
 
-	if($send_body) {
+	if($body && $send_body) {
 		push @o, "";
 		push @o, $body;
 	}
 
-	if(scalar @o) {
+	if(defined(@o) && (scalar @o)) {
 		print join("\r\n", @o);
 	}
 
@@ -252,6 +253,7 @@ The cache_key should be a unique value dependent upon the values set by the brow
 sub set_options {
 	my %params = @_;
 
+	# Safe options - can be called at any time
 	if(defined($params{generate_etag})) {
 		$generate_etag = $params{generate_etag};
 	}
@@ -260,6 +262,14 @@ sub set_options {
 	}
 	if(defined($params{optimise_content})) {
 		$optimise_content = $params{optimise_content};
+	}
+
+	# Unsafe options - must be called before output has been started
+	my $pos = $CGI::Buffer::buf->getpos;
+	if($pos > 0) {
+		# Must do Carp::carp instead of carp for Test::Carp
+		Carp::carp "Too late to call set_options, $pos characters have been printed";
+		return;
 	}
 	if(defined($params{cache})) {
 		$cache = $params{cache};

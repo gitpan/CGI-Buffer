@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.17	Mon Oct 31 16:09:09 EDT 2011
+	Fix bug in X-CGI-Buffer header
+	Carp if you're trying to set an unsafe option after output has been
+		generated
+
 0.16	Mon Oct 24 09:54:09 EDT 2011
 	Improved client side caching
 
