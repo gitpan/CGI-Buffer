@@ -16,11 +16,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.18
+Version 0.19
 
 =cut
 
-our $VERSION = '0.18';
+our $VERSION = '0.19';
 
 =head1 SYNOPSIS
 
@@ -190,9 +190,22 @@ END {
 		if(!defined($body)) {
 			if($send_body) {
 				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
+				if($ENV{'SERVER_PROTOCOL'} &&
+				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
+				  defined($body) &&
+				  $ENV{'HTTP_IF_NONE_MATCH'}) {
+					$etag = '"' . MD5->hexhash($body) . '"';
+					if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+						push @o, "Status: 304 Not Modified";
+						$send_body = 0;
+						$send_headers = 0;
+					}
+				}
 			}
-			$headers = $cache->get("CGI::Buffer/$key/headers");
-			push @o, "X-CGI-Buffer-$VERSION: Hit";
+			if($send_headers) {
+				$headers = $cache->get("CGI::Buffer/$key/headers");
+				push @o, "X-CGI-Buffer-$VERSION: Hit";
+			}
 			# my $mtime = $cache->age("CGI::Buffer $key");
 			# push @o,"Last-Modified: $mtime\n";
 		} else {

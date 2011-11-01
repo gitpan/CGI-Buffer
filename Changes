@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.19	Mon Oct 31 22:52:01 EDT 2011
+	Send 304 if server cache matches client's HTTP_IF_NONE_MATCH
+
 0.18	Mon Oct 31 17:41:48 EDT 2011
 	Small optimisations
 	Fix is_cache handling of gzipped content_encoding
