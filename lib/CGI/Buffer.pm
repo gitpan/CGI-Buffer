@@ -16,11 +16,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.19
+Version 0.20
 
 =cut
 
-our $VERSION = '0.19';
+our $VERSION = '0.20';
 
 =head1 SYNOPSIS
 
@@ -66,7 +66,7 @@ our $info;
 
 BEGIN {
 	use Exporter();
-	use vars qw($VERSION $buf $pos $headers $header $header_name $encoding
+	use vars qw($VERSION $buf $pos $headers $header $header_name
 				$header_value $body @content_type $etag $send_body @o
 				$send_headers $i);
 
@@ -172,14 +172,14 @@ END {
 	}
 
 	my $isgzipped = 0;
-	if(defined($body)) {
-		my $encoding = _should_gzip();
-		if(length($encoding) > 0) {
+	my $encoding = _should_gzip();
+if(length($encoding) > 0) {
+		if(defined($body)) {
 			$body = Compress::Zlib::memGzip($body);
 			push @o, "Content-Encoding: $encoding";
 			push @o, "Vary: Accept-Encoding";
-			$isgzipped = 1;
 		}
+		$isgzipped = 1;
 	}
 
 	if($cache) {
@@ -209,9 +209,9 @@ END {
 			# my $mtime = $cache->age("CGI::Buffer $key");
 			# push @o,"Last-Modified: $mtime\n";
 		} else {
-			push @o, "X-CGI-Buffer-$VERSION: Miss";
 			$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
-			$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
+			$cache->set("CGI::Buffer/$key/headers", "$headers\r\n" . join("\r\n", @o), '10 minutes');
+			push @o, "X-CGI-Buffer-$VERSION: Miss";
 		}
 	}
 	if($send_headers) {
@@ -349,9 +349,15 @@ sub _should_gzip {
 	if($compress_content && $ENV{'HTTP_ACCEPT_ENCODING'}) {
 		foreach my $encoding ('x-gzip', 'gzip') {
 			$_ = lc($ENV{'HTTP_ACCEPT_ENCODING'});
-			if (m/$encoding/i && lc($content_type[0]) eq 'text') {
-				return $encoding;
-			}
+                        if($content_type[0]) {
+                                if (m/$encoding/i && lc($content_type[0]) eq 'text') {
+                                        return $encoding;
+                                }
+                        } else {
+                                if (m/$encoding/i) {
+                                        return $encoding;
+                                }
+                        }
 		}
 	}
 
