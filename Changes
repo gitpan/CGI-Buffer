@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.21
+	Fixed spelling mistakes in the documentation
+	More optimise content at end of paragraphs and hyperlinks
+
 0.20	Tue Nov  1 13:48:55 EDT 2011
 	More server side cache fixes
 

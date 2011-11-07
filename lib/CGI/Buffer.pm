@@ -16,16 +16,16 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.20
+Version 0.21
 
 =cut
 
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 
 =head1 SYNOPSIS
 
-CGI::Buffer speeds the output of CGI programs by compressing output and
-by nearly seemlessley making use of client and server caches.
+CGI::Buffer optimises CGI programs by compressing output to speed up the
+transmission and by nearly seamlessly making use of client and server caches.
 
 To make use of client caches, that is to say to reduce needless calls to
 your server asking for the same data, all you need to do is to include the
@@ -106,30 +106,33 @@ END {
 	}
 
 	if($optimise_content && defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
-		$body =~ s/\r\n/\n/g;
-		$body =~ s/\n+/\n/g;
-		$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gim;
-		$body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gim;
-		$body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gim;
-		$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;	# TODO <p class=
-		$body =~ s/\s+\<\/html/\<\/html/im;
-		$body =~ s/\s+\<\/body/\<\/body/im;
-		$body =~ s/\n\s+|\s+\n/\n/g;
-		$body =~ s/\t+/ /g;
-		$body =~ s/\s+/ /;
-		$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
-		$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
-		$body =~ s/\<p\>\s/\<p\>/gi;
-		$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
-		$body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
-		$body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
-		$body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
-		$body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
-		$body =~ s/\<br\>\s/\<br\>/gi;
-		$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
-		$body =~ s/\s+\<p\>/\<p\>/gi;
-		$body =~ s/\s+\<script/\<script/gi;
-		$body =~ s/\<td\>\s+/\<td\>/gi;
+                $body =~ s/\r\n/\n/gs;
+                $body =~ s/\s+\n/\n/gs;
+                $body =~ s/\n+/\n/gs;
+                $body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gis;
+                $body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gis;
+                $body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gis;
+                $body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
+		$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
+                $body =~ s/\s+\<\/html/\<\/html/is;
+                $body =~ s/\s+\<\/body/\<\/body/is;
+                $body =~ s/\n\s+|\s+\n/\n/g;
+                $body =~ s/\t+/ /g;
+                $body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
+                $body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
+                $body =~ s/\<p\>\s/\<p\>/gi;
+                $body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
+                $body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
+                $body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
+                $body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
+                $body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
+                $body =~ s/\<br\>\s/\<br\>/gi;
+                $body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
+                $body =~ s/\s+\<p\>/\<p\>/gi;
+                $body =~ s/\s+\<script/\<script/gi;
+                $body =~ s/\<td\>\s+/\<td\>/gi;
+		$body =~ s/\s+\<a\s+href="(.+?)"\>\s+/ <a href="$1">/gis;
+                $body =~ s/\s\s/ /gs;
 
 		unless(defined($info)) {
 			$info = CGI::Info->new();
@@ -222,7 +225,7 @@ if(length($encoding) > 0) {
 	}
 
 	if($body && $send_body) {
-		push @o, "";
+		push @o, '';
 		push @o, $body;
 	}
 
@@ -243,6 +246,8 @@ sub _generate_key {
 	unless(defined($info)) {
 		$info = CGI::Info->new();
 	}
+
+	# TODO: Use CGI::Lingua so that the correct language is returned
 	return $info->script_name() . '/' . $info->as_string();
 }
 
@@ -262,8 +267,11 @@ Sets the options.
 	cache_key => 'string'	# key for the cache
     );
 
-If no cache_key is given, one will be generatated which may not be unique.
+If no cache_key is given, one will be generated which may not be unique.
 The cache_key should be a unique value dependent upon the values set by the browser.
+
+The cache object will be an instantiation of a class that understands get,
+set and is_valid, such as L<CHI>.
 
 =cut
 
@@ -349,15 +357,15 @@ sub _should_gzip {
 	if($compress_content && $ENV{'HTTP_ACCEPT_ENCODING'}) {
 		foreach my $encoding ('x-gzip', 'gzip') {
 			$_ = lc($ENV{'HTTP_ACCEPT_ENCODING'});
-                        if($content_type[0]) {
-                                if (m/$encoding/i && lc($content_type[0]) eq 'text') {
-                                        return $encoding;
-                                }
-                        } else {
-                                if (m/$encoding/i) {
-                                        return $encoding;
-                                }
-                        }
+			if($content_type[0]) {
+				if (m/$encoding/i && lc($content_type[0]) eq 'text') {
+					return $encoding;
+				}
+			} else {
+				if (m/$encoding/i) {
+					return $encoding;
+				}
+			}
 		}
 	}
 
