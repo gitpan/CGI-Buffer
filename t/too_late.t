@@ -20,6 +20,8 @@ if($@) {
 
 		ok(CGI::Buffer::is_cached() == 0);
 
+		my $test_count = 4;
+
 		SKIP: {
 			eval {
 				require CHI;
@@ -27,7 +29,10 @@ if($@) {
 				CHI->import;
 			};
 
-			skip 'CHI not installed', 1 if $@;
+			if($@) {
+				$test_count = 3;
+				skip 'CHI not installed', 1 if $@;
+			}
 
 			diag("Using CHI $CHI::VERSION");
 
@@ -41,6 +46,6 @@ if($@) {
 
 			ok(CGI::Buffer::is_cached() == 0);
 		}
-		done_testing(4);
+		done_testing($test_count);
 	}
 }

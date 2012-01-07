@@ -16,11 +16,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.21
+Version 0.22
 
 =cut
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 
 =head1 SYNOPSIS
 
@@ -176,7 +176,8 @@ END {
 
 	my $isgzipped = 0;
 	my $encoding = _should_gzip();
-if(length($encoding) > 0) {
+
+	if(length($encoding) > 0) {
 		if(defined($body)) {
 			$body = Compress::Zlib::memGzip($body);
 			push @o, "Content-Encoding: $encoding";
@@ -233,7 +234,7 @@ if(length($encoding) > 0) {
 		print join("\r\n", @o);
 	}
 
-	unless($send_body) {
+	if((!$send_body) || !defined($body)) {
 		print "\r\n\r\n";
 	}
 }
