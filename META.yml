@@ -27,4 +27,4 @@ requires:
   MD5: 0
   Test::Kwalitee: 0
   Test::More: 0.82
-version: 0.22
+version: 0.23

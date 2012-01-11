@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.23
+	Improved header handling when caching few headers
+
 0.22	Fri Jan  6 20:58:43 EST 2012
 	Ensure that two newlines are appended when doing redirects
 	If CHI isn't installed, get the count right in t/too_late.t

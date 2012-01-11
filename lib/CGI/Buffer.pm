@@ -16,11 +16,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.22
+Version 0.23
 
 =cut
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 
 =head1 SYNOPSIS
 
@@ -214,7 +214,11 @@ END {
 			# push @o,"Last-Modified: $mtime\n";
 		} else {
 			$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
-			$cache->set("CGI::Buffer/$key/headers", "$headers\r\n" . join("\r\n", @o), '10 minutes');
+			if(scalar(@o)) {
+				$cache->set("CGI::Buffer/$key/headers", "$headers\r\n" . join("\r\n", @o), '10 minutes');
+			} else {
+				$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
+			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
 		}
 	}
@@ -442,7 +446,7 @@ The licence for cgi_buffer is:
 
     This software is provided 'as is' without warranty of any kind."
 
-The reset of the program is Copyright 2011 Nigel Horne,
+The reset of the program is Copyright 2011-2012 Nigel Horne,
 and is released under the following licence: GPL
 
 =cut
