@@ -19,12 +19,15 @@ no_index:
     - inc
 requires:
   CGI::Info: 0.11
+  CSS::Packer: 0
   Carp: 0
   Compress::Zlib: 0
   HTML::Clean: 0
+  HTML::Packer: 0
   IO::CaptureOutput: 0
   IO::String: 0
+  JavaScript::Packer: 0
   MD5: 0
   Test::Kwalitee: 0
   Test::More: 0.82
-version: 0.23
+version: 0.24

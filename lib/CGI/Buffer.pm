@@ -8,6 +8,7 @@ use IO::String;
 use Compress::Zlib;
 use CGI::Info;
 use HTML::Clean;
+use HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
 use Carp;
 
 =head1 NAME
@@ -16,11 +17,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.23
+Version 0.24
 
 =cut
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 
 =head1 SYNOPSIS
 
@@ -154,6 +155,14 @@ END {
 		# $h->compat();
 		$h->strip();
 		my $ref = $h->data();
+
+		my $packer = HTML::Packer->init();
+		$ref = $packer->minify($ref, {
+			remove_comments => 1,
+			remove_newlines => 1,
+			do_javascript => 'best',
+			do_stylesheet => 'minify'
+		});
 		$body = $$ref;
 	}
 
@@ -397,8 +406,9 @@ or through the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue
 I will be notified, and then you'll automatically be notified of progress on
 your bug as I make changes.
 
+=head1 SEE ALSO
 
-
+HTML::Clean, HTML::Packer
 
 =head1 SUPPORT
 
