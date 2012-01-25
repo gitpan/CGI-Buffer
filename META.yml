@@ -30,4 +30,4 @@ requires:
   MD5: 0
   Test::Kwalitee: 0
   Test::More: 0.82
-version: 0.24
+version: 0.25

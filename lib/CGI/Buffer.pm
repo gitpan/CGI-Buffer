@@ -17,11 +17,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.24
+Version 0.25
 
 =cut
 
-our $VERSION = '0.24';
+our $VERSION = '0.25';
 
 =head1 SYNOPSIS
 
@@ -157,13 +157,12 @@ END {
 		my $ref = $h->data();
 
 		my $packer = HTML::Packer->init();
-		$ref = $packer->minify($ref, {
+		$body = $packer->minify($ref, {
 			remove_comments => 1,
 			remove_newlines => 1,
 			do_javascript => 'best',
 			do_stylesheet => 'minify'
 		});
-		$body = $$ref;
 	}
 
 	# Generate the eTag before compressing, since the compressed data

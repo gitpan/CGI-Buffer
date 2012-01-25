@@ -1,9 +1,12 @@
 Revision history for CGI-Buffer
 
+0.25	Wed Jan 25 10:40:25 GMT 2012
+	Fixed the way HTML::Packer was called
+
 0.24	Tue Jan 24 21:59:00 GMT 2012
 	Include HTML::Packer. Eventually I will probably drop HTML::Clean,
 		so I'm testing HTML::Packer.  HTML::Clean doesn't seem to
-		be supported any more.
+		be supported any more
 
 0.23
 	Improved header handling when caching few headers
