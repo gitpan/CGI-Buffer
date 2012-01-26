@@ -7,8 +7,6 @@ use MD5;
 use IO::String;
 use Compress::Zlib;
 use CGI::Info;
-use HTML::Clean;
-use HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
 use Carp;
 
 =head1 NAME
@@ -17,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.25
+Version 0.26
 
 =cut
 
-our $VERSION = '0.25';
+our $VERSION = '0.26';
 
 =head1 SYNOPSIS
 
@@ -107,6 +105,9 @@ END {
 	}
 
 	if($optimise_content && defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
+		require HTML::Clean;
+		require HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
+
                 $body =~ s/\r\n/\n/gs;
                 $body =~ s/\s+\n/\n/gs;
                 $body =~ s/\n+/\n/gs;
@@ -157,10 +158,15 @@ END {
 		my $ref = $h->data();
 
 		my $packer = HTML::Packer->init();
+		# Don't do javascript best, it could use obfuscate which doesn't
+		# work - on my site I found it obfuscates the names of functions
+		# but not all the calls, so you get 'undefined functions' and
+		# your site breaks...
 		$body = $packer->minify($ref, {
 			remove_comments => 1,
 			remove_newlines => 1,
-			do_javascript => 'best',
+			# do_javascript => 'best',
+			do_javascript => 'shrink',
 			do_stylesheet => 'minify'
 		});
 	}

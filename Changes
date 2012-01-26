@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.26
+	Added t/output.t
+	Use shrink not best in JavaScript::Packer
+
 0.25	Wed Jan 25 10:40:25 GMT 2012
 	Fixed the way HTML::Packer was called
 
