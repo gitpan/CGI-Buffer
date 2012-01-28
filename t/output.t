@@ -22,6 +22,7 @@ OUTPUT: {
 	delete $ENV{'SERVER_PROTOCOL'};
 
 	my $tmp = File::Temp->new();
+	print $tmp "use strict;\n";
 	print $tmp "use CGI::Buffer;\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
@@ -95,7 +96,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -Iblib/lib <' . $tmp->filename);
+	open($fout, '-|', 'perl -wT -Iblib/lib <' . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -108,4 +109,47 @@ OUTPUT: {
 	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
 	ok($output =~ /^Content-Encoding: gzip/m);
 	ok($output =~ /ETag: "/m);
+
+	delete $ENV{'SERVER_PROTOCOL'};
+	delete $ENV{'HTTP_ACCEPT_ENCODING'};
+
+	$ENV{'SERVER_NAME'} = 'www.example.com';
+
+	$tmp = File::Temp->new();
+	print $tmp "use CGI::Buffer;\n";
+	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
+	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
+	print $tmp "print \"\\n\\n\";\n";
+	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com\\\">Click</A></BODY></HTML>\\n\";\n";
+
+	open($fout, '-|', 'perl -wT -Iblib/lib <' . $tmp->filename);
+
+	$keep = $_;
+	undef $/;
+	$output = <$fout>;
+	$/ = $keep;
+
+	close $tmp;
+
+	ok($output !~ /www.example.com/m);
+	ok($output =~ /href="\/"/m);
+
+	$tmp = File::Temp->new();
+	print $tmp "use CGI::Buffer;\n";
+	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
+	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
+	print $tmp "print \"\\n\\n\";\n";
+	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
+
+	open($fout, '-|', 'perl -wT -Iblib/lib <' . $tmp->filename);
+
+	$keep = $_;
+	undef $/;
+	$output = <$fout>;
+	$/ = $keep;
+
+	close $tmp;
+
+	ok($output !~ /www.example.com/m);
+	ok($output =~ /href="\/foo.htm"/m);
 }

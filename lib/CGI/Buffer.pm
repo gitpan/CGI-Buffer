@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.26
+Version 0.27
 
 =cut
 
-our $VERSION = '0.26';
+our $VERSION = '0.27';
 
 =head1 SYNOPSIS
 
@@ -147,10 +147,12 @@ END {
 			$protocol = 'http';
 		}
 
-		$body =~ s/<a\s+?href="$protocol:\/\/$href"/<a href="\//gim;
+		$body =~ s/<a\s+?href="$protocol:\/\/$href"/<a href="\/"/gim;
+		$body =~ s/<a\s+?href="$protocol:\/\/$href/<a href="/gim;
 
 		# TODO: <img border=0 src=...>
-		$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\//gim;
+		$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\/"/gim;
+		$body =~ s/<img\s+?src="$protocol:\/\/$href/<img src="/gim;
 
 		my $h = new HTML::Clean(\$body);
 		# $h->compat();
@@ -158,15 +160,15 @@ END {
 		my $ref = $h->data();
 
 		my $packer = HTML::Packer->init();
-		# Don't do javascript best, it could use obfuscate which doesn't
-		# work - on my site I found it obfuscates the names of functions
-		# but not all the calls, so you get 'undefined functions' and
-		# your site breaks...
+		# Don't do javascript.
+		# On my site I found it seems to produce javascript that
+		# doesn't work, in that somehow functions are defined but their
+		# callers say they're not defined.  It's weird and I don't
+		# have the time to debug what's wrong at the moment.
 		$body = $packer->minify($ref, {
 			remove_comments => 1,
 			remove_newlines => 1,
 			# do_javascript => 'best',
-			do_javascript => 'shrink',
 			do_stylesheet => 'minify'
 		});
 	}
@@ -266,8 +268,9 @@ sub _generate_key {
 		$info = CGI::Info->new();
 	}
 
-	# TODO: Use CGI::Lingua so that the correct language is returned
-	return $info->script_name() . '/' . $info->as_string();
+	# TODO: Use CGI::Lingua so that different languages are stored in
+	#	different caches
+	return $info->domain_name() . '/' . $info->script_name() . '/' . $info->as_string();
 }
 
 =head2 set_options
@@ -345,7 +348,7 @@ the result stored in the cache.
     # be generated for you
     CGI::Buffer::set_options(
 	cache => CHI->new(driver => 'File'),
-	cache_key => $i->script_name() . '/' . $i->as_string() . '/' . $l->language()
+	cache_key => $i->domain_name() . '/' . $i->script_name() . '/' . $i->as_string() . '/' . $l->language()
     );
     if(CGI::Buffer::is_cached()) {
 	# Output will be retrieved from the cache and sent automatically
