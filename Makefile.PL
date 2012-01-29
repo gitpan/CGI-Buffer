@@ -21,7 +21,7 @@ WriteMakefile(
 	'HTML::Clean' => 0,
 	'CSS::Packer' => 0,
 	'HTML::Packer' => 0,
-	'JavaScript::Packer' => 0,
+	# 'JavaScript::Packer' => 0,
 	'Carp' => 0,
 	'Test::Kwalitee' => 0,
     },

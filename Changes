@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.28	Sun Jan 29 12:33:55 GMT 2012
+	Fixed test count in t/output.t
+
 0.27	Sat Jan 28 11:04:32 GMT 2012
 	Use the domain name as part of the key, so that if two scripts of
 		the same name are used in different hosts, ensure that they

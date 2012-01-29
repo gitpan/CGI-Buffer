@@ -9,7 +9,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 21;
 use File::Temp;
 # use Test::NoWarnings;	# HTML::Clean has them
 
