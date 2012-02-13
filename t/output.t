@@ -1,6 +1,6 @@
 #!perl -w
 
-# Test if CGI::Buffer addes Content-Length and Etag headers, also simple
+# Test if CGI::Buffer adds Content-Length and Etag headers, also simple
 # check that optimise_content and gzips does something.
 
 # TODO: check optimise_content and gzips do the *right* thing
@@ -9,7 +9,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 21;
+use Test::More tests => 29;
 use File::Temp;
 # use Test::NoWarnings;	# HTML::Clean has them
 
@@ -28,7 +28,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>   Hello World</BODY></HTML>\\n\";\n";
 
-	open(my $fout, '-|', 'perl -Iblib/lib <' . $tmp->filename);
+	open(my $fout, '-|', 'perl -Iblib/lib ' . $tmp->filename);
 
 	my $keep = $_;
 	undef $/;
@@ -37,10 +37,14 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+\d+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	my $length = $1;
 	ok($output =~ /<HTML><BODY>   Hello World<\/BODY><\/HTML>/m);
 	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
+
+	my ($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
 
 	$tmp = File::Temp->new();
 	print $tmp "use CGI::Buffer;\n";
@@ -49,7 +53,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>    Hello World</BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -Iblib/lib <' . $tmp->filename);
+	open($fout, '-|', 'perl -Iblib/lib ' . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -58,11 +62,15 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+\d+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	$length = $1;
 	# Extra spaces should have been removed
 	ok($output =~ /<HTML><BODY> Hello World<\/BODY><\/HTML>/mi);
 	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
 
 	$ENV{'HTTP_ACCEPT_ENCODING'} = 'gzip';
 
@@ -72,7 +80,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -Iblib/lib <' . $tmp->filename);
+	open($fout, '-|', 'perl -Iblib/lib ' . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -81,11 +89,15 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+\d+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	$length = $1;
 	# It's gzipped, so it won't include this
 	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
 	ok($output =~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
 
 	$ENV{'SERVER_PROTOCOL'} = 'HTTP/1.1';
 
@@ -96,7 +108,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -wT -Iblib/lib <' . $tmp->filename);
+	open($fout, '-|', 'perl -wT -Iblib/lib ' . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -105,10 +117,14 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+\d+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	$length = $1;
 	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
 	ok($output =~ /^Content-Encoding: gzip/m);
 	ok($output =~ /ETag: "/m);
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
 
 	delete $ENV{'SERVER_PROTOCOL'};
 	delete $ENV{'HTTP_ACCEPT_ENCODING'};
@@ -122,7 +138,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com\\\">Click</A></BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -wT -Iblib/lib <' . $tmp->filename);
+	open($fout, '-|', 'perl -wT -Iblib/lib ' . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -133,6 +149,11 @@ OUTPUT: {
 
 	ok($output !~ /www.example.com/m);
 	ok($output =~ /href="\/"/m);
+	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	$length = $1;
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
 
 	$tmp = File::Temp->new();
 	print $tmp "use CGI::Buffer;\n";
@@ -141,7 +162,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -wT -Iblib/lib <' . $tmp->filename);
+	open($fout, '-|', 'perl -wT -Iblib/lib ' . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -152,4 +173,9 @@ OUTPUT: {
 
 	ok($output !~ /www.example.com/m);
 	ok($output =~ /href="\/foo.htm"/m);
+	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	$length = $1;
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
 }

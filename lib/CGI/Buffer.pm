@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.28
+Version 0.29
 
 =cut
 
-our $VERSION = '0.28';
+our $VERSION = '0.29';
 
 =head1 SYNOPSIS
 
@@ -167,7 +167,7 @@ END {
 		# have the time to debug what's wrong at the moment.
 		$body = $packer->minify($ref, {
 			remove_comments => 1,
-			remove_newlines => 1,
+			remove_newlines => 0,
 			# do_javascript => 'best',
 			do_stylesheet => 'minify'
 		});
@@ -369,7 +369,7 @@ sub is_cached {
 	my $encoding = _should_gzip();
 	my $isgzipped = (length($encoding) > 0) ? 1 : 0;
 
-	# FIXME: It is remotely possible that is_valid will succesed, and the
+	# FIXME: It is remotely possible that is_valid will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
 	return $cache->is_valid("CGI::Buffer/$key/$isgzipped");

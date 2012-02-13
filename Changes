@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.29
+	Added tests to t/output.t to verify that Content-Length is correct
+	Don't tell HTML::Packer to remove newlines.
+
 0.28	Sun Jan 29 12:33:55 GMT 2012
 	Fixed test count in t/output.t
 
