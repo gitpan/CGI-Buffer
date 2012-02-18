@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.29
+Version 0.30
 
 =cut
 
-our $VERSION = '0.29';
+our $VERSION = '0.30';
 
 =head1 SYNOPSIS
 
@@ -56,10 +56,13 @@ But that's simple:
 
 =cut
 
+use constant MIN_GZIP_LEN => 32;
+
 our $generate_etag = 1;
 our $compress_content = 1;
 our $optimise_content = 0;
 our $cache;
+our $cache_age;
 our $cache_key;
 our $info;
 
@@ -67,7 +70,7 @@ BEGIN {
 	use Exporter();
 	use vars qw($VERSION $buf $pos $headers $header $header_name
 				$header_value $body @content_type $etag $send_body @o
-				$send_headers $i);
+				$send_headers);
 
 	$CGI::Buffer::buf = IO::String->new;
 	$CGI::Buffer::old_buf = select($CGI::Buffer::buf);
@@ -194,7 +197,7 @@ END {
 	my $encoding = _should_gzip();
 
 	if(length($encoding) > 0) {
-		if(defined($body)) {
+		if(defined($body) && (length($body) >= MIN_GZIP_LEN)) {
 			$body = Compress::Zlib::memGzip($body);
 			push @o, "Content-Encoding: $encoding";
 			push @o, "Vary: Accept-Encoding";
@@ -229,11 +232,14 @@ END {
 			# my $mtime = $cache->age("CGI::Buffer $key");
 			# push @o,"Last-Modified: $mtime\n";
 		} else {
-			$cache->set("CGI::Buffer/$key/$isgzipped", $body, '10 minutes');
+			unless($cache_age) {
+				$cache_age = '10 minutes';
+			}
+			$cache->set("CGI::Buffer/$key/$isgzipped", $body, $cache_age);
 			if(scalar(@o)) {
-				$cache->set("CGI::Buffer/$key/headers", "$headers\r\n" . join("\r\n", @o), '10 minutes');
+				$cache->set("CGI::Buffer/$key/headers", "$headers\r\n" . join("\r\n", @o), $cache_age);
 			} else {
-				$cache->set("CGI::Buffer/$key/headers", $headers, '10 minutes');
+				$cache->set("CGI::Buffer/$key/headers", $headers, $cache_age);
 			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
 		}
@@ -318,11 +324,23 @@ sub set_options {
 		Carp::carp "Too late to call set_options, $pos characters have been printed";
 		return;
 	}
-	if(defined($params{cache})) {
-		$cache = $params{cache};
-	}
-	if(defined($params{cache_key})) {
-		$cache_key = $params{cache_key};
+	unless(defined($ENV{'NO_CACHE'}) || defined($ENV{'NO_STORE'})) {
+		if(defined($params{cache})) {
+			if(defined($ENV{'HTTP_CACHE_CONTROL'})) {
+				my $control = $ENV{'HTTP_CACHE_CONTROL'};
+				unless(($control eq 'no-store') || ($control eq 'no-cache')) {
+					if($control =~ /^max-age\s*=\s*(\d+)$/) {
+						$cache_age = "$1 seconds";
+					}
+					$cache = $params{cache};
+				}
+			} else {
+				$cache = $params{cache};
+			}
+		}
+		if(defined($params{cache_key})) {
+			$cache_key = $params{cache_key};
+		}
 	}
 }
 

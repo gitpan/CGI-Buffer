@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.30	Sat Feb 18 12:37:29 EST 2012
+	Don't gzip if the output is < MIN_GZIP_LEN
+	Honour cache-control HTTP header
+
 0.29
 	Added tests to t/output.t to verify that Content-Length is correct
 	Don't tell HTML::Packer to remove newlines.
