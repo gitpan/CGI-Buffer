@@ -102,6 +102,11 @@ OUTPUT: {
 	$ENV{'SERVER_PROTOCOL'} = 'HTTP/1.1';
 
 	$tmp = File::Temp->new();
+	if($ENV{'PERL5LIB'}) {
+		foreach (split(':', $ENV{'PERL5LIB'})) {
+			print $tmp "use lib '$_';\n";
+		}
+	}
 	print $tmp "use CGI::Buffer;\n";
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
@@ -132,6 +137,11 @@ OUTPUT: {
 	$ENV{'SERVER_NAME'} = 'www.example.com';
 
 	$tmp = File::Temp->new();
+	if($ENV{'PERL5LIB'}) {
+		foreach (split(':', $ENV{'PERL5LIB'})) {
+			print $tmp "use lib '$_';\n";
+		}
+	}
 	print $tmp "use CGI::Buffer;\n";
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
@@ -156,6 +166,11 @@ OUTPUT: {
 	ok(length($body) eq $length);
 
 	$tmp = File::Temp->new();
+	if($ENV{'PERL5LIB'}) {
+		foreach (split(':', $ENV{'PERL5LIB'})) {
+			print $tmp "use lib '$_';\n";
+		}
+	}
 	print $tmp "use CGI::Buffer;\n";
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";

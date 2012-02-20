@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.30
+Version 0.31
 
 =cut
 
-our $VERSION = '0.30';
+our $VERSION = '0.31';
 
 =head1 SYNOPSIS
 
@@ -197,10 +197,24 @@ END {
 	my $encoding = _should_gzip();
 
 	if(length($encoding) > 0) {
-		if(defined($body) && (length($body) >= MIN_GZIP_LEN)) {
-			$body = Compress::Zlib::memGzip($body);
-			push @o, "Content-Encoding: $encoding";
-			push @o, "Vary: Accept-Encoding";
+		if(defined($body)) {
+			if($ENV{'Range'} && !$cache) {
+				# TODO: Partials
+				if($ENV{'Range'} =~ /^bytes=(\d*)-(\d*)/) {
+					if($1 && $2) {
+						$body = substr($body, $1, $2-$1);
+					} elsif($1) {
+						$body = substr($body, $1);
+					} elsif($2) {
+						$body = substr($body, 0, $2);
+					}
+				}
+			}
+			if(length($body) >= MIN_GZIP_LEN) {
+				$body = Compress::Zlib::memGzip($body);
+				push @o, "Content-Encoding: $encoding";
+				push @o, "Vary: Accept-Encoding";
+			}
 		}
 		$isgzipped = 1;
 	}
@@ -330,6 +344,8 @@ sub set_options {
 				my $control = $ENV{'HTTP_CACHE_CONTROL'};
 				unless(($control eq 'no-store') || ($control eq 'no-cache')) {
 					if($control =~ /^max-age\s*=\s*(\d+)$/) {
+						# There is an argument not to do this
+						# since one client will affect others
 						$cache_age = "$1 seconds";
 					}
 					$cache = $params{cache};
