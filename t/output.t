@@ -28,7 +28,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>   Hello World</BODY></HTML>\\n\";\n";
 
-	open(my $fout, '-|', 'perl -Iblib/lib ' . $tmp->filename);
+	open(my $fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
 	my $keep = $_;
 	undef $/;
@@ -53,7 +53,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>    Hello World</BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -Iblib/lib ' . $tmp->filename);
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -80,7 +80,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -Iblib/lib ' . $tmp->filename);
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -113,7 +113,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -wT -Iblib/lib ' . $tmp->filename);
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -148,7 +148,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com\\\">Click</A></BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -wT -Iblib/lib ' . $tmp->filename);
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
@@ -177,7 +177,7 @@ OUTPUT: {
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
 
-	open($fout, '-|', 'perl -wT -Iblib/lib ' . $tmp->filename);
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
 	$keep = $_;
 	undef $/;
