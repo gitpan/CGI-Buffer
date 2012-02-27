@@ -3,9 +3,8 @@ package CGI::Buffer;
 use strict;
 use warnings;
 
-use MD5;
+use Digest::MD5;
 use IO::String;
-use Compress::Zlib;
 use CGI::Info;
 use Carp;
 
@@ -15,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.32
+Version 0.33
 
 =cut
 
-our $VERSION = '0.32';
+our $VERSION = '0.33';
 
 =head1 SYNOPSIS
 
@@ -181,7 +180,7 @@ END {
 	# Etag to be generated
 	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
 		if($generate_etag) {
-			$etag = '"' . MD5->hexhash($body) . '"';
+			$etag = '"' . Digest::MD5->new->add($body)->hexdigest() . '"';
 			push @o, "ETag: $etag";
 			if ($ENV{'HTTP_IF_NONE_MATCH'}) {
 				if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
@@ -211,7 +210,10 @@ END {
 				}
 			}
 			if(length($body) >= MIN_GZIP_LEN) {
-				$body = Compress::Zlib::memGzip($body);
+				require Compress::Zlib;
+				Compress::Zlib->import;
+
+				$body = Compress::Zlib::memGzip(\$body);
 				push @o, "Content-Encoding: $encoding";
 				push @o, "Vary: Accept-Encoding";
 			}
@@ -231,7 +233,9 @@ END {
 				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
 				  defined($body) &&
 				  $ENV{'HTTP_IF_NONE_MATCH'}) {
-					$etag = '"' . MD5->hexhash($body) . '"';
+				  	if(!defined($etag)) {
+						$etag = '"' . Digest::MD5->new->add($body)->hexdigest() . '"';
+					}
 					if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
 						push @o, "Status: 304 Not Modified";
 						$send_body = 0;
@@ -258,14 +262,21 @@ END {
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
 		}
 	}
+
+	my $body_length = defined($body) ? length($body) : 0;
+
 	if($send_headers) {
-		push @o, $headers;
-		if($body && $send_body) {
-			push @o, "Content-Length: " . length($body);
+		if(defined($headers) && length($headers)) {
+			push @o, $headers;
+			if($body && $send_body) {
+				push @o, "Content-Length: $body_length";
+			}
+		} else {
+			push @o, "X-CGI-Buffer-$VERSION: No headers";
 		}
 	}
 
-	if($body && $send_body) {
+	if($body_length && $send_body) {
 		push @o, '';
 		push @o, $body;
 	}

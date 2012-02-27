@@ -14,7 +14,7 @@ WriteMakefile(
     PREREQ_PM => {
         'Test::More' => 0.82,	# Needs new_ok
 	'IO::CaptureOutput' => 0,
-	'MD5' => 0,
+	'Digest::MD5' => 0,
 	'IO::String' => 0,
 	'Compress::Zlib' => 0,
 	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol

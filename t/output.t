@@ -9,7 +9,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 29;
+use Test::More tests => 31;
 use File::Temp;
 # use Test::NoWarnings;	# HTML::Clean has them
 
@@ -70,6 +70,8 @@ OUTPUT: {
 	ok($output !~ /^ETag: "/m);
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(defined($headers));
+	ok(defined($body));
 	ok(length($body) eq $length);
 
 	$ENV{'HTTP_ACCEPT_ENCODING'} = 'gzip';

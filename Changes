@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.33	Mon Feb 27 11:42:45 EST 2012
+	Fix occasional unitialised value
+	Various performance enhancements
+	Use Digest::MD5 instead of MD5
+
 0.32	Sat Feb 25 16:53:39 EST 2012
 	Call the correct Perl in t/output.t - RT75309.  Thanks to ANDK@cpan.org
 
