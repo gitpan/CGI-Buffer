@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.33
+Version 0.34
 
 =cut
 
-our $VERSION = '0.33';
+our $VERSION = '0.34';
 
 =head1 SYNOPSIS
 
@@ -162,15 +162,13 @@ END {
 		my $ref = $h->data();
 
 		my $packer = HTML::Packer->init();
-		# Don't do javascript.
-		# On my site I found it seems to produce javascript that
-		# doesn't work, in that somehow functions are defined but their
-		# callers say they're not defined.  It's weird and I don't
-		# have the time to debug what's wrong at the moment.
+		# Don't always do javascript 'best' since it's confused by
+		# the common <!-- HIDE technique.
+		# See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
 		$body = $packer->minify($ref, {
 			remove_comments => 1,
 			remove_newlines => 0,
-			# do_javascript => 'best',
+			do_javascript => ($optimise_content >= 2) ? 'best' : 'clean',
 			do_stylesheet => 'minify'
 		});
 	}
@@ -310,12 +308,13 @@ Sets the options.
 
     # Put this toward the top of your program before you do anything
     # By default, generate_tag and compress_content are both ON and
-    # optimise_content is OFF
+    # optimise_content is OFF.  Set optimise_content to 2 to do aggressive
+    # JavaScript optimisations which may fail.
     use CGI::Buffer;
     CGI::Buffer::set_options(
 	generate_etag => 1,	# make good use of client's cache
 	compress_content => 1,	# if gzip the output
-	optimise_content => 0,	# optimise your program's HTML
+	optimise_content => 0,	# optimise your program's HTML, CSS and JavaScript
 	cache => CHI->new(driver => 'File'),	# cache requests
 	cache_key => 'string'	# key for the cache
     );

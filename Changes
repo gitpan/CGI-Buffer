@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.34
+	Bump minimum required HTML::CLean in an attempt to fix
+		http://www.cpantesters.org/cpan/report/40d9566e-6673-11e1-a50d-8482959b33a2
+	Introduce optimise_content levels, 0 = OFF, 1 = normal, 2 = aggressive (may fail)
+
 0.33	Mon Feb 27 11:42:45 EST 2012
 	Fix occasional unitialised value
 	Various performance enhancements
