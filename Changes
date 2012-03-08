@@ -1,7 +1,13 @@
 Revision history for CGI-Buffer
 
-0.34
-	Bump minimum required HTML::CLean in an attempt to fix
+0.35	Thu Mar  8 10:07:35 EST 2012
+	Include JavaScript::Packer as a prerequisite
+	Bump minimum required HTML::Packer in an attempt to fix
+		http://www.cpantesters.org/cpan/report/b077836c-688d-11e1-b4da-8ac6d9130bc2
+	Added aggressive optimisation for document.write and t/js.t
+
+0.34	Wed Mar  7 15:51:08 EST 2012
+	Bump minimum required HTML::Clean in an attempt to fix
 		http://www.cpantesters.org/cpan/report/40d9566e-6673-11e1-a50d-8482959b33a2
 	Introduce optimise_content levels, 0 = OFF, 1 = normal, 2 = aggressive (may fail)
 

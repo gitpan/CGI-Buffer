@@ -12,6 +12,7 @@ t/critic.t
 t/cv.t
 t/gv.t
 t/is_cached.t
+t/js.t
 t/kwalitee.t
 t/manifest.t
 t/output.t

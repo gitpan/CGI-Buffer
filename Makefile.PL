@@ -20,8 +20,8 @@ WriteMakefile(
 	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol
 	'HTML::Clean' => 0.8,
 	'CSS::Packer' => 0,
-	'HTML::Packer' => 0,
-	# 'JavaScript::Packer' => 1.006003,
+	'HTML::Packer' => 1.000,
+	'JavaScript::Packer' => 1.006003,
 	'Carp' => 0,
 	'Test::Kwalitee' => 0,
     },

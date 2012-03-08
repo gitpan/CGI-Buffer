@@ -38,14 +38,15 @@
             "Compress::Zlib" : "0",
             "Digest::MD5" : "0",
             "HTML::Clean" : "0.8",
-            "HTML::Packer" : "0",
+            "HTML::Packer" : "1",
             "IO::CaptureOutput" : "0",
             "IO::String" : "0",
+            "JavaScript::Packer" : "1.006003",
             "Test::Kwalitee" : "0",
             "Test::More" : "0.82"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.34"
+   "version" : "0.35"
 }

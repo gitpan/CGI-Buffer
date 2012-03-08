@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.34
+Version 0.35
 
 =cut
 
-our $VERSION = '0.34';
+our $VERSION = '0.35';
 
 =head1 SYNOPSIS
 
@@ -171,6 +171,12 @@ END {
 			do_javascript => ($optimise_content >= 2) ? 'best' : 'clean',
 			do_stylesheet => 'minify'
 		});
+		if($optimise_content >= 2) {
+			# Change document.write("a"); document.write("b")
+			# into document.write("a"+"b");
+			# This will only change one occurance per script
+			$body =~ s/<script\s*?type\s*?=\s*?"text\/javascript"\s*?>(.*?)document\.write\((.+?)\);\s*?document\.write\((.+?)\)/<script type="text\/JavaScript">${1}document.write($2+$3)/igs;
+		}
 	}
 
 	# Generate the eTag before compressing, since the compressed data
