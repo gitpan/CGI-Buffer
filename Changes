@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.36	Sat Mar 17 16:47:25 EDT 2012
+	Drop use of HTML Clean until RT402 is fixed.
+
 0.35	Thu Mar  8 10:07:35 EST 2012
 	Include JavaScript::Packer as a prerequisite
 	Bump minimum required HTML::Packer in an attempt to fix

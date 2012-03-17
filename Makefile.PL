@@ -18,7 +18,7 @@ WriteMakefile(
 	'IO::String' => 0,
 	'Compress::Zlib' => 0,
 	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol
-	'HTML::Clean' => 0.8,
+	# 'HTML::Clean' => 0.8,
 	'CSS::Packer' => 0,
 	'HTML::Packer' => 1.000,
 	'JavaScript::Packer' => 1.006003,

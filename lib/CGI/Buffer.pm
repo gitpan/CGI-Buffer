@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.35
+Version 0.36
 
 =cut
 
-our $VERSION = '0.35';
+our $VERSION = '0.36';
 
 =head1 SYNOPSIS
 
@@ -107,7 +107,7 @@ END {
 	}
 
 	if($optimise_content && defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
-		require HTML::Clean;
+		# require HTML::Clean;
 		require HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
 
                 $body =~ s/\r\n/\n/gs;
@@ -156,16 +156,17 @@ END {
 		$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\/"/gim;
 		$body =~ s/<img\s+?src="$protocol:\/\/$href/<img src="/gim;
 
-		my $h = new HTML::Clean(\$body);
-		# $h->compat();
-		$h->strip();
-		my $ref = $h->data();
+		# Don't use HTML::Clean because of RT402
+		# my $h = new HTML::Clean(\$body);
+		# # $h->compat();
+		# $h->strip();
+		# my $ref = $h->data();
 
 		my $packer = HTML::Packer->init();
 		# Don't always do javascript 'best' since it's confused by
 		# the common <!-- HIDE technique.
 		# See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
-		$body = $packer->minify($ref, {
+		$body = HTML::Packer->init()->minify(\$body, {
 			remove_comments => 1,
 			remove_newlines => 0,
 			do_javascript => ($optimise_content >= 2) ? 'best' : 'clean',
@@ -450,9 +451,17 @@ Nigel Horne, C<< <njh at bandsman.co.uk> >>
 
 =head1 BUGS
 
-There are no real tests because I haven't yet worked out how to capture the
-output that a module outputs at the END stage to check if it's outputting the
-correct data.
+When using L<Template>, ensure that you don't use it to output to STDOUT, instead you
+will need to capture into a variable and print that.
+For example:
+
+    my $output;
+    $template->process($input, $vars, \$output) || ($output = $template->error());
+    print $output;
+
+Can produce buggy JavaScript if you use the <!-- HIDING technique.
+This is a bug in L<<JavaScript::Packer>>, not CGI::Buffer.
+See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
 
 Mod_deflate can confuse this when compressing output. Ensure that deflation is
 off for .pl files:
@@ -466,7 +475,7 @@ your bug as I make changes.
 
 =head1 SEE ALSO
 
-HTML::Clean, HTML::Packer
+HTML::Packer
 
 =head1 SUPPORT
 
