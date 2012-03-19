@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.37
+	Turned JavaScript optimisation off for optimise_content level 1.
+
 0.36	Sat Mar 17 16:47:25 EDT 2012
 	Drop use of HTML Clean until RT402 is fixed.
 

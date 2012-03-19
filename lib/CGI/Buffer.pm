@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.36
+Version 0.37
 
 =cut
 
-our $VERSION = '0.36';
+our $VERSION = '0.37';
 
 =head1 SYNOPSIS
 
@@ -166,12 +166,15 @@ END {
 		# Don't always do javascript 'best' since it's confused by
 		# the common <!-- HIDE technique.
 		# See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
-		$body = HTML::Packer->init()->minify(\$body, {
+		my $options = {
 			remove_comments => 1,
 			remove_newlines => 0,
-			do_javascript => ($optimise_content >= 2) ? 'best' : 'clean',
 			do_stylesheet => 'minify'
-		});
+		};
+		if($optimise_content >= 2) {
+			$options->{do_javascript} = 'best';
+		}
+		$body = HTML::Packer->init()->minify(\$body, $options);
 		if($optimise_content >= 2) {
 			# Change document.write("a"); document.write("b")
 			# into document.write("a"+"b");
