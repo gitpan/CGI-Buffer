@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.38	Wed Apr 18 11:32:31 BST 2012
+	Only do kwalitee test in author environment because it throws too
+		many false positives
+	Remove blank spaces between table cells
+
 0.37
 	Turned JavaScript optimisation off for optimise_content level 1.
 

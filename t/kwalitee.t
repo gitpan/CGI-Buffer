@@ -3,8 +3,8 @@ use warnings;
 
 use Test::More;
 
-if(not $ENV{RELEASE_TESTING}) {
-	plan(skip_all => 'Author tests not required for installation');
+unless($ENV{RELEASE_TESTING}) {
+    plan( skip_all => "Author tests not required for installation" );
 }
 
 eval { require Test::Kwalitee; };

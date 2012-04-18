@@ -14,11 +14,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.37
+Version 0.38
 
 =cut
 
-our $VERSION = '0.37';
+our $VERSION = '0.38';
 
 =head1 SYNOPSIS
 
@@ -128,6 +128,7 @@ END {
                 $body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
                 $body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
                 $body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
+		$body =~ s/\<\/td\>\s*\<td\>/\<\/td\>\<td\>/gi;
                 $body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
                 $body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
                 $body =~ s/\<br\>\s/\<br\>/gi;
@@ -173,6 +174,8 @@ END {
 		};
 		if($optimise_content >= 2) {
 			$options->{do_javascript} = 'best';
+			$body =~ s/(<script.*>)\s*<!--/$1/gi;
+			$body =~ s/\/\/-->\s*<\/script>/<\/script>/gi;
 		}
 		$body = HTML::Packer->init()->minify(\$body, $options);
 		if($optimise_content >= 2) {
