@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.39	Fri Apr 20 09:04:51 BST 2012
+	Avoid "Wide character in subroutine entry" when generating ETags
+	Remove warning on perl5.15.9
+	Added tests that If-None-Match can generate 304 return status
+
 0.38	Wed Apr 18 11:32:31 BST 2012
 	Only do kwalitee test in author environment because it throws too
 		many false positives

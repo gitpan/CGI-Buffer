@@ -23,10 +23,11 @@ requires:
   Carp: 0
   Compress::Zlib: 0
   Digest::MD5: 0
+  Encode: 0
   HTML::Packer: 1
   IO::CaptureOutput: 0
   IO::String: 0
   JavaScript::Packer: 1.006003
   Test::Kwalitee: 0
   Test::More: 0.82
-version: 0.38
+version: 0.39

@@ -7,6 +7,7 @@ use Digest::MD5;
 use IO::String;
 use CGI::Info;
 use Carp;
+use Encode;
 
 =head1 NAME
 
@@ -14,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.38
+Version 0.39
 
 =cut
 
-our $VERSION = '0.38';
+our $VERSION = '0.39';
 
 =head1 SYNOPSIS
 
@@ -128,7 +129,7 @@ END {
                 $body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
                 $body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
                 $body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
-		$body =~ s/\<\/td\>\s*\<td\>/\<\/td\>\<td\>/gi;
+		$body =~ s/\<\/td\>\s*\<td\>/\<\/td\>\<td\>/gis;
                 $body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
                 $body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
                 $body =~ s/\<br\>\s/\<br\>/gi;
@@ -191,7 +192,7 @@ END {
 	# Etag to be generated
 	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
 		if($generate_etag) {
-			$etag = '"' . Digest::MD5->new->add($body)->hexdigest() . '"';
+			$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 			push @o, "ETag: $etag";
 			if ($ENV{'HTTP_IF_NONE_MATCH'}) {
 				if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
@@ -245,7 +246,7 @@ END {
 				  defined($body) &&
 				  $ENV{'HTTP_IF_NONE_MATCH'}) {
 				  	if(!defined($etag)) {
-						$etag = '"' . Digest::MD5->new->add($body)->hexdigest() . '"';
+						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 					}
 					if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
 						push @o, "Status: 304 Not Modified";
@@ -292,7 +293,8 @@ END {
 		push @o, $body;
 	}
 
-	if(defined(@o) && (scalar @o)) {
+	# if(defined(@o) && (scalar @o)) {
+	if(scalar @o) {
 		print join("\r\n", @o);
 	}
 

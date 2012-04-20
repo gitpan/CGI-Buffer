@@ -12,18 +12,19 @@ WriteMakefile(
       : ()),
     PL_FILES            => {},
     PREREQ_PM => {
-        'Test::More' => 0.82,	# Needs new_ok
-	'IO::CaptureOutput' => 0,
-	'Digest::MD5' => 0,
-	'IO::String' => 0,
-	'Compress::Zlib' => 0,
-	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol
-	# 'HTML::Clean' => 0.8,
-	'CSS::Packer' => 0,
-	'HTML::Packer' => 1.000,
-	'JavaScript::Packer' => 1.006003,
 	'Carp' => 0,
+	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol
+	'CSS::Packer' => 0,
+	'Compress::Zlib' => 0,
+	'Digest::MD5' => 0,
+    	'Encode' => 0,
+	# 'HTML::Clean' => 0.8,
+	'HTML::Packer' => 1.000,
+	'IO::CaptureOutput' => 0,
+	'IO::String' => 0,
+	'JavaScript::Packer' => 1.006003,
 	'Test::Kwalitee' => 0,
+        'Test::More' => 0.82,	# Needs new_ok
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'CGI-Buffer-*' },

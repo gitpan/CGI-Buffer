@@ -1,7 +1,7 @@
 #!perl -w
 
 # Test if CGI::Buffer adds Content-Length and Etag headers, also simple
-# check that optimise_content and gzips does something.
+# check that optimise_content and gzips do something.
 
 # TODO: check optimise_content and gzips do the *right* thing
 # TODO: check ETags are correct
@@ -9,7 +9,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 34;
+use Test::More tests => 38;
 use File::Temp;
 # use Test::NoWarnings;	# HTML::Clean has them
 
@@ -128,7 +128,7 @@ OUTPUT: {
 	$length = $1;
 	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
 	ok($output =~ /^Content-Encoding: gzip/m);
-	ok($output =~ /ETag: "/m);
+	ok($output =~ /ETag: "[A-Za-z0-F0-f]{32}"/m);
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
@@ -199,6 +199,9 @@ OUTPUT: {
 	ok(length($body) eq $length);
 
 	#..........................................
+	$ENV{'SERVER_PROTOCOL'} = 'HTTP/1.1';
+	delete $ENV{'HTTP_ACCEPT_ENCODING'};
+
 	$tmp = File::Temp->new();
 	if($ENV{'PERL5LIB'}) {
 		foreach (split(':', $ENV{'PERL5LIB'})) {
@@ -218,12 +221,38 @@ OUTPUT: {
 	$output = <$fout>;
 	$/ = $keep;
 
-	close $tmp;
-
 	ok($output =~ /<TD>foo<\/TD><TD>bar<\/TD>/mi);
 	ok($output =~ /^Content-Length:\s+(\d+)+/m);
 	$length = $1;
+	ok($output =~ /ETag: "([A-Za-z0-F0-f]{32})"/m);
+	my $etag = $1;
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
+	ok(defined($etag));
+
+	#..........................................
+	$ENV{'HTTP_IF_NONE_MATCH'} = $etag;
+
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
+
+	$keep = $_;
+	undef $/;
+	$output = <$fout>;
+	$/ = $keep;
+
+	ok($output =~ /^Status: 304 Not Modified/mi);
+
+	$ENV{'REQUEST_METHOD'} = 'HEAD';
+
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
+
+	$keep = $_;
+	undef $/;
+	$output = <$fout>;
+	$/ = $keep;
+
+	close $tmp;
+
+	ok($output =~ /^Status: 304 Not Modified/mi);
 }
