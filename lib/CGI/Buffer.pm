@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.39
+Version 0.40
 
 =cut
 
-our $VERSION = '0.39';
+our $VERSION = '0.40';
 
 =head1 SYNOPSIS
 
@@ -192,6 +192,7 @@ END {
 	# Etag to be generated
 	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
 		if($generate_etag) {
+			# encode to avoid "Wide character in subroutine entry"
 			$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 			push @o, "ETag: $etag";
 			if ($ENV{'HTTP_IF_NONE_MATCH'}) {
@@ -225,7 +226,8 @@ END {
 				require Compress::Zlib;
 				Compress::Zlib->import;
 
-				$body = Compress::Zlib::memGzip(\$body);
+				# Avoid 'Wide character in memGzip'
+				$body = Compress::Zlib::memGzip(\encode_utf8($body));
 				push @o, "Content-Encoding: $encoding";
 				push @o, "Vary: Accept-Encoding";
 			}
@@ -245,7 +247,7 @@ END {
 				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
 				  defined($body) &&
 				  $ENV{'HTTP_IF_NONE_MATCH'}) {
-				  	if(!defined($etag)) {
+					if(!defined($etag)) {
 						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 					}
 					if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
@@ -317,16 +319,16 @@ sub _generate_key {
 	return $info->domain_name() . '/' . $info->script_name() . '/' . $info->as_string();
 }
 
-=head2 set_options
+=head2 init
 
-Sets the options.
+Set various options and override default values.
 
     # Put this toward the top of your program before you do anything
     # By default, generate_tag and compress_content are both ON and
     # optimise_content is OFF.  Set optimise_content to 2 to do aggressive
     # JavaScript optimisations which may fail.
     use CGI::Buffer;
-    CGI::Buffer::set_options(
+    CGI::Buffer::init(
 	generate_etag => 1,	# make good use of client's cache
 	compress_content => 1,	# if gzip the output
 	optimise_content => 0,	# optimise your program's HTML, CSS and JavaScript
@@ -340,10 +342,17 @@ The cache_key should be a unique value dependent upon the values set by the brow
 The cache object will be an instantiation of a class that understands get,
 set and is_valid, such as L<CHI>.
 
+Init allows a reference of the options to be passed. So both of these work:
+    CGI::Buffer::init(generate_etag => 1);
+    CGI::Buffer::init({ generate_etag => 1 });
+
+Generally speaking, passing by reference is better since it copies less on to
+the stack.
+
 =cut
 
-sub set_options {
-	my %params = @_;
+sub init {
+	my %params = (ref($_[0]) eq 'HASH') ? %{$_[0]} : @_;
 
 	# Safe options - can be called at any time
 	if(defined($params{generate_etag})) {
@@ -360,7 +369,7 @@ sub set_options {
 	my $pos = $CGI::Buffer::buf->getpos;
 	if($pos > 0) {
 		# Must do Carp::carp instead of carp for Test::Carp
-		Carp::carp "Too late to call set_options, $pos characters have been printed";
+		Carp::carp "Too late to call init, $pos characters have been printed";
 		return;
 	}
 	unless(defined($ENV{'NO_CACHE'}) || defined($ENV{'NO_STORE'})) {
@@ -383,6 +392,17 @@ sub set_options {
 			$cache_key = $params{cache_key};
 		}
 	}
+}
+
+=head2 set_options
+
+Synonym for init, kept for historical reasons.
+=cut
+
+sub set_options {
+	my %params = @_;
+
+	init(%params);
 }
 
 =head2 is_cached

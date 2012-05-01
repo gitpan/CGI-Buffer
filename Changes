@@ -1,5 +1,12 @@
 Revision history for CGI-Buffer
 
+0.40	Tue May  1 20:58:23 BST 2012
+	Check gzip is valid
+	Avoid 'Wide character in memGzip'
+	Renamed set_options to init, but kept set_options as a synonym for
+		legacy apps
+	Allow a reference to be passed to init
+
 0.39	Fri Apr 20 09:04:51 BST 2012
 	Avoid "Wide character in subroutine entry" when generating ETags
 	Remove warning on perl5.15.9

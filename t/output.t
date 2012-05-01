@@ -1,7 +1,7 @@
 #!perl -w
 
 # Test if CGI::Buffer adds Content-Length and Etag headers, also simple
-# check that optimise_content and gzips do something.
+# check that optimise_content does something.
 
 # TODO: check optimise_content and gzips do the *right* thing
 # TODO: check ETags are correct
@@ -9,8 +9,9 @@
 use strict;
 use warnings;
 
-use Test::More tests => 38;
+use Test::More tests => 39;
 use File::Temp;
+use Compress::Zlib;
 # use Test::NoWarnings;	# HTML::Clean has them
 
 BEGIN {
@@ -110,7 +111,7 @@ OUTPUT: {
 		}
 	}
 	print $tmp "use CGI::Buffer;\n";
-	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
+	print $tmp "CGI::Buffer::init(optimise_content => 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
@@ -132,6 +133,8 @@ OUTPUT: {
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
+	$body = Compress::Zlib::memGunzip($body);
+	ok($body eq '<HTML><BODY>Hello World</BODY></HTML>');
 
 	#..........................................
 	delete $ENV{'SERVER_PROTOCOL'};
@@ -146,7 +149,7 @@ OUTPUT: {
 		}
 	}
 	print $tmp "use CGI::Buffer;\n";
-	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
+	print $tmp "CGI::Buffer::init({ optimise_content => 1 });\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com\\\">Click</A></BODY></HTML>\\n\";\n";

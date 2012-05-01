@@ -30,4 +30,4 @@ requires:
   JavaScript::Packer: 1.006003
   Test::Kwalitee: 0
   Test::More: 0.82
-version: 0.39
+version: 0.40
