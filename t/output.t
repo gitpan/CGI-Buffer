@@ -110,8 +110,7 @@ OUTPUT: {
 			print $tmp "use lib '$_';\n";
 		}
 	}
-	print $tmp "use CGI::Buffer;\n";
-	print $tmp "CGI::Buffer::init(optimise_content => 1);\n";
+	print $tmp "use CGI::Buffer {optimise_content => 1};\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
 	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";

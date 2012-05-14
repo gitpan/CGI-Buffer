@@ -15,11 +15,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.40
+Version 0.41
 
 =cut
 
-our $VERSION = '0.40';
+our $VERSION = '0.41';
 
 =head1 SYNOPSIS
 
@@ -31,8 +31,7 @@ your server asking for the same data, all you need to do is to include the
 package, and it does the rest.
 
     use CGI::Buffer;
-
-    ...
+    # ...
 
 To also make use of server caches, that is to say to save regenerating output
 when different clients ask you for the same data,
@@ -43,14 +42,14 @@ But that's simple:
     use CHI;
 
     # Put this at the top before you output anything
-    CGI::Buffer::set_options(
+    CGI::Buffer::init(
 	cache => CHI->new(driver => 'File')
     );
     if(CGI::Buffer::is_cached()) {
 	exit;
     }
 
-    ...
+    # ...
 
 =head1 SUBROUTINES/METHODS
 
@@ -343,11 +342,16 @@ The cache object will be an instantiation of a class that understands get,
 set and is_valid, such as L<CHI>.
 
 Init allows a reference of the options to be passed. So both of these work:
+    use CGI::Buffer;
+    #...
     CGI::Buffer::init(generate_etag => 1);
     CGI::Buffer::init({ generate_etag => 1 });
 
 Generally speaking, passing by reference is better since it copies less on to
 the stack.
+
+Alternatively you can give the options when loading the package:
+    use CGI::Bufer { optimise_content => 1 };
 
 =cut
 
@@ -394,9 +398,19 @@ sub init {
 	}
 }
 
+sub import {
+	# my $class = shift;
+	shift;
+
+	return unless @_;
+
+	init(@_);
+}
+
 =head2 set_options
 
 Synonym for init, kept for historical reasons.
+
 =cut
 
 sub set_options {
@@ -425,7 +439,7 @@ the result stored in the cache.
     # To use server side caching you must give the cache argument, however
     # the cache_key argument is optional - if you don't give one then one will
     # be generated for you
-    CGI::Buffer::set_options(
+    CGI::Buffer::init(
 	cache => CHI->new(driver => 'File'),
 	cache_key => $i->domain_name() . '/' . $i->script_name() . '/' . $i->as_string() . '/' . $l->language()
     );
