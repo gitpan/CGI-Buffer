@@ -25,6 +25,7 @@ WriteMakefile(
 	'JavaScript::Packer' => 1.006003,
 	'Test::Kwalitee' => 0,
         'Test::More' => 0.82,	# Needs new_ok
+	'DateTime' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'CGI-Buffer-*' },

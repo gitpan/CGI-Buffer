@@ -8,6 +8,7 @@ use IO::String;
 use CGI::Info;
 use Carp;
 use Encode;
+use DateTime;
 
 =head1 NAME
 
@@ -15,11 +16,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.41
+Version 0.42
 
 =cut
 
-our $VERSION = '0.41';
+our $VERSION = '0.42';
 
 =head1 SYNOPSIS
 
@@ -244,15 +245,26 @@ END {
 				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
 				if($ENV{'SERVER_PROTOCOL'} &&
 				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
-				  defined($body) &&
-				  $ENV{'HTTP_IF_NONE_MATCH'}) {
-					if(!defined($etag)) {
-						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+				  defined($body)) {
+					if($ENV{'HTTP_IF_NONE_MATCH'}) {
+						if(!defined($etag)) {
+							$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+						}
+						if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+							push @o, "Status: 304 Not Modified";
+							$send_body = 0;
+							$send_headers = 0;
+						}
 					}
-					if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
-						push @o, "Status: 304 Not Modified";
-						$send_body = 0;
-						$send_headers = 0;
+					if($ENV{'IF_MODIFIED_SINCE'} && $send_body) {
+						my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
+						my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at());
+
+						if($a >= $r) {
+							push @o, "Status: 304 Not Modified";
+							$send_body = 0;
+							$send_headers = 0;
+						}
 					}
 				}
 			}
@@ -264,6 +276,9 @@ END {
 			# push @o,"Last-Modified: $mtime\n";
 		} else {
 			unless($cache_age) {
+				# It would be great if CHI::set() allowed
+				# the time to be 'lru' for least recently
+				# used.
 				$cache_age = '10 minutes';
 			}
 			$cache->set("CGI::Buffer/$key/$isgzipped", $body, $cache_age);
@@ -351,7 +366,7 @@ Generally speaking, passing by reference is better since it copies less on to
 the stack.
 
 Alternatively you can give the options when loading the package:
-    use CGI::Bufer { optimise_content => 1 };
+    use CGI::Buffer { optimise_content => 1 };
 
 =cut
 

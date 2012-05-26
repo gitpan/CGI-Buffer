@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.42	Sat May 26 15:31:54 EDT 2012
+	Tightned tests for Content-Length
+	Send 304 if object in cache is newer than IF_MODIFIED_SINCE
+
 0.41	Mon May 14 12:30:32 EDT 2012
 	Allow options to be given in the 'use' call
 

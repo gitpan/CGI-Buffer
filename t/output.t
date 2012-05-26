@@ -5,11 +5,13 @@
 
 # TODO: check optimise_content and gzips do the *right* thing
 # TODO: check ETags are correct
+# TODO: Write a test to check that 304 is sent when the cached object
+#	is newer than the IF_MODIFIED_SINCE date
 
 use strict;
 use warnings;
 
-use Test::More tests => 39;
+use Test::More tests => 51;
 use File::Temp;
 use Compress::Zlib;
 # use Test::NoWarnings;	# HTML::Clean has them
@@ -38,8 +40,9 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	my $length = $1;
+	ok(defined($length));
 	ok($output =~ /<HTML><BODY>   Hello World<\/BODY><\/HTML>/m);
 	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
@@ -63,8 +66,9 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
+	ok(defined($length));
 	# Extra spaces should have been removed
 	ok($output =~ /<HTML><BODY> Hello World<\/BODY><\/HTML>/mi);
 	ok($output !~ /^Content-Encoding: gzip/m);
@@ -92,8 +96,9 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
+	ok(defined($length));
 	# It's gzipped, so it won't include this
 	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
 	ok($output =~ /^Content-Encoding: gzip/m);
@@ -124,8 +129,9 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
+	ok(defined($length));
 	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
 	ok($output =~ /^Content-Encoding: gzip/m);
 	ok($output =~ /ETag: "[A-Za-z0-F0-f]{32}"/m);
@@ -164,8 +170,9 @@ OUTPUT: {
 
 	ok($output !~ /www.example.com/m);
 	ok($output =~ /href="\/"/m);
-	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
+	ok(defined($length));
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
@@ -194,8 +201,9 @@ OUTPUT: {
 
 	ok($output !~ /www.example.com/m);
 	ok($output =~ /href="\/foo.htm"/m);
-	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
+	ok(defined($length));
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
@@ -224,14 +232,16 @@ OUTPUT: {
 	$/ = $keep;
 
 	ok($output =~ /<TD>foo<\/TD><TD>bar<\/TD>/mi);
-	ok($output =~ /^Content-Length:\s+(\d+)+/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
+	ok(defined($length));
+
 	ok($output =~ /ETag: "([A-Za-z0-F0-f]{32})"/m);
 	my $etag = $1;
+	ok(defined($etag));
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
-	ok(defined($etag));
 
 	#..........................................
 	$ENV{'HTTP_IF_NONE_MATCH'} = $etag;
@@ -257,4 +267,40 @@ OUTPUT: {
 	close $tmp;
 
 	ok($output =~ /^Status: 304 Not Modified/mi);
+
+	#..........................................
+	delete $ENV{'HTTP_IF_NONE_MATCH'};
+	$ENV{'IF_MODIFIED_SINCE'} = DateTime->now();
+	$ENV{'REQUEST_METHOD'} = 'GET';
+
+	$tmp = File::Temp->new();
+	if($ENV{'PERL5LIB'}) {
+		foreach (split(':', $ENV{'PERL5LIB'})) {
+			print $tmp "use lib '$_';\n";
+		}
+	}
+	print $tmp "use CGI::Buffer { optimise_content => 1, generate_etag => 0 };\n";
+	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
+	print $tmp "print \"\\n\\n\";\n";
+	print $tmp "print \"<HTML><BODY><TABLE><TR><TD>foo</TD>  <TD>bar</TD></TR></TABLE></BODY></HTML>\\n\";\n";
+
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
+
+	$keep = $_;
+	undef $/;
+	$output = <$fout>;
+	$/ = $keep;
+
+	close $tmp;
+
+	ok($output !~ /ETag: "([A-Za-z0-F0-f]{32})"/m);
+
+	ok($output !~ /^Status: 304 Not Modified/mi);
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
+
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
+	$length = $1;
+	ok(defined($length));
 }

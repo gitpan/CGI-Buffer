@@ -22,6 +22,7 @@ requires:
   CSS::Packer: 0
   Carp: 0
   Compress::Zlib: 0
+  DateTime: 0
   Digest::MD5: 0
   Encode: 0
   HTML::Packer: 1
@@ -30,4 +31,4 @@ requires:
   JavaScript::Packer: 1.006003
   Test::Kwalitee: 0
   Test::More: 0.82
-version: 0.41
+version: 0.42
