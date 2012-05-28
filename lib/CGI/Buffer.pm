@@ -17,11 +17,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.43
+Version 0.44
 
 =cut
 
-our $VERSION = '0.43';
+our $VERSION = '0.44';
 
 =head1 SYNOPSIS
 
@@ -262,7 +262,7 @@ END {
 						my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
 						my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at());
 
-						if($a >= $r) {
+						if($r >= $a) {
 							push @o, "Status: 304 Not Modified";
 							$send_body = 0;
 							$send_headers = 0;

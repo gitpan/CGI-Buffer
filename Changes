@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.44	Mon May 28 10:39:57 EDT 2012
+	Corrected logic error
+
 0.43	Mon May 28 00:31:40 EDT 2012
 	Generate Last-Modified header when possible
 
