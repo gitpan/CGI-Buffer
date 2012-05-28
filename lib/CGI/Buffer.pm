@@ -9,6 +9,7 @@ use CGI::Info;
 use Carp;
 use Encode;
 use DateTime;
+use HTTP::Date;
 
 =head1 NAME
 
@@ -16,11 +17,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.42
+Version 0.43
 
 =cut
 
-our $VERSION = '0.42';
+our $VERSION = '0.43';
 
 =head1 SYNOPSIS
 
@@ -59,6 +60,7 @@ But that's simple:
 use constant MIN_GZIP_LEN => 32;
 
 our $generate_etag = 1;
+our $generate_last_modified = 1;
 our $compress_content = 1;
 our $optimise_content = 0;
 our $cache;
@@ -269,11 +271,13 @@ END {
 				}
 			}
 			if($send_headers) {
-				$headers = $cache->get("CGI::Buffer/$key/headers");
+				my $hkey = "CGI::Buffer/$key/headers";
+				$headers = $cache->get($hkey);
+				if($generate_last_modified) {
+					push @o, "Last-Modified: " . HTTP::Date::time2str($cache->get_object($hkey)->created_at());
+				}
 				push @o, "X-CGI-Buffer-$VERSION: Hit";
 			}
-			# my $mtime = $cache->age("CGI::Buffer $key");
-			# push @o,"Last-Modified: $mtime\n";
 		} else {
 			unless($cache_age) {
 				# It would be great if CHI::set() allowed
@@ -286,6 +290,9 @@ END {
 				$cache->set("CGI::Buffer/$key/headers", "$headers\r\n" . join("\r\n", @o), $cache_age);
 			} else {
 				$cache->set("CGI::Buffer/$key/headers", $headers, $cache_age);
+			}
+			if($generate_last_modified) {
+				push @o, "Last-Modified: " . HTTP::Date::time2str(time);
 			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
 		}
@@ -344,6 +351,7 @@ Set various options and override default values.
     use CGI::Buffer;
     CGI::Buffer::init(
 	generate_etag => 1,	# make good use of client's cache
+	generate_last_modified => 1,	# more use of client's cache
 	compress_content => 1,	# if gzip the output
 	optimise_content => 0,	# optimise your program's HTML, CSS and JavaScript
 	cache => CHI->new(driver => 'File'),	# cache requests
@@ -351,10 +359,13 @@ Set various options and override default values.
     );
 
 If no cache_key is given, one will be generated which may not be unique.
-The cache_key should be a unique value dependent upon the values set by the browser.
+The cache_key should be a unique value dependent upon the values set by the
+browser.
 
 The cache object will be an instantiation of a class that understands get,
-set and is_valid, such as L<CHI>.
+set, created_at and is_valid, such as L<CHI>.
+
+To generate a last_modified header, you must give a cache object.
 
 Init allows a reference of the options to be passed. So both of these work:
     use CGI::Buffer;
@@ -376,6 +387,9 @@ sub init {
 	# Safe options - can be called at any time
 	if(defined($params{generate_etag})) {
 		$generate_etag = $params{generate_etag};
+	}
+	if(defined($params{generate_last_modified})) {
+		$generate_last_modified = $params{generate_last_modified};
 	}
 	if(defined($params{compress_content})) {
 		$compress_content = $params{compress_content};

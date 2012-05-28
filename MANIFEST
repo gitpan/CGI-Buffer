@@ -14,6 +14,7 @@ t/gv.t
 t/is_cached.t
 t/js.t
 t/kwalitee.t
+t/last_mod.t
 t/manifest.t
 t/noplan.t
 t/output.t
