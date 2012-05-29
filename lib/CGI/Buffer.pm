@@ -17,11 +17,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.44
+Version 0.45
 
 =cut
 
-our $VERSION = '0.44';
+our $VERSION = '0.45';
 
 =head1 SYNOPSIS
 
@@ -248,21 +248,21 @@ END {
 				if($ENV{'SERVER_PROTOCOL'} &&
 				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
 				  defined($body)) {
-					if($ENV{'HTTP_IF_NONE_MATCH'}) {
-						if(!defined($etag)) {
-							$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
-						}
-						if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+					if($ENV{'IF_MODIFIED_SINCE'}) {
+						my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
+						my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at());
+
+						if($r >= $a) {
 							push @o, "Status: 304 Not Modified";
 							$send_body = 0;
 							$send_headers = 0;
 						}
 					}
-					if($ENV{'IF_MODIFIED_SINCE'} && $send_body) {
-						my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
-						my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at());
-
-						if($r >= $a) {
+					if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
+						if(!defined($etag)) {
+							$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+						}
+						if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
 							push @o, "Status: 304 Not Modified";
 							$send_body = 0;
 							$send_headers = 0;
@@ -277,6 +277,18 @@ END {
 					push @o, "Last-Modified: " . HTTP::Date::time2str($cache->get_object($hkey)->created_at());
 				}
 				push @o, "X-CGI-Buffer-$VERSION: Hit";
+				if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
+					if(defined($body) && !defined($etag)) {
+						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+					}
+					if(defined($etag) && ($headers =~ /^ETag:\s+(.+)$/mi)) {
+						if($1 eq $etag) {
+							push @o, "Status: 304 Not Modified";
+							$send_body = 0;
+							$send_headers = 0;
+						}
+					}
+				}
 			}
 		} else {
 			unless($cache_age) {
@@ -292,7 +304,7 @@ END {
 				$cache->set("CGI::Buffer/$key/headers", $headers, $cache_age);
 			}
 			if($generate_last_modified) {
-				push @o, "Last-Modified: " . HTTP::Date::time2str(time);
+				push @o, "Last-Modified: " . HTTP::Date::time2str();
 			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
 		}
@@ -316,7 +328,6 @@ END {
 		push @o, $body;
 	}
 
-	# if(defined(@o) && (scalar @o)) {
 	if(scalar @o) {
 		print join("\r\n", @o);
 	}
@@ -409,7 +420,9 @@ sub init {
 		if(defined($params{cache})) {
 			if(defined($ENV{'HTTP_CACHE_CONTROL'})) {
 				my $control = $ENV{'HTTP_CACHE_CONTROL'};
-				unless(($control eq 'no-store') || ($control eq 'no-cache')) {
+				unless(($control eq 'no-store') ||
+				       ($control eq 'no-cache') ||
+				       ($control eq 'private')) {
 					if($control =~ /^max-age\s*=\s*(\d+)$/) {
 						# There is an argument not to do this
 						# since one client will affect others
@@ -502,7 +515,7 @@ sub _should_gzip {
 		foreach my $encoding ('x-gzip', 'gzip') {
 			$_ = lc($ENV{'HTTP_ACCEPT_ENCODING'});
 			if($content_type[0]) {
-				if (m/$encoding/i && lc($content_type[0]) eq 'text') {
+				if (m/$encoding/i && (lc($content_type[0]) eq 'text')) {
 					return $encoding;
 				}
 			} else {

@@ -11,7 +11,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 51;
+use Test::More tests => 54;
 use File::Temp;
 use Compress::Zlib;
 # use Test::NoWarnings;	# HTML::Clean has them
@@ -242,6 +242,7 @@ OUTPUT: {
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
+	ok(length($body) > 0);
 
 	#..........................................
 	$ENV{'HTTP_IF_NONE_MATCH'} = $etag;
@@ -254,6 +255,8 @@ OUTPUT: {
 	$/ = $keep;
 
 	ok($output =~ /^Status: 304 Not Modified/mi);
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) == 0);
 
 	$ENV{'REQUEST_METHOD'} = 'HEAD';
 
@@ -267,6 +270,8 @@ OUTPUT: {
 	close $tmp;
 
 	ok($output =~ /^Status: 304 Not Modified/mi);
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) == 0);
 
 	#..........................................
 	delete $ENV{'HTTP_IF_NONE_MATCH'};
