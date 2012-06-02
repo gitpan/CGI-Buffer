@@ -17,11 +17,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.45
+Version 0.46
 
 =cut
 
-our $VERSION = '0.45';
+our $VERSION = '0.46';
 
 =head1 SYNOPSIS
 
@@ -246,26 +246,53 @@ END {
 			if($send_body) {
 				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
 				if($ENV{'SERVER_PROTOCOL'} &&
-				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
-				  defined($body)) {
-					if($ENV{'IF_MODIFIED_SINCE'}) {
-						my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
-						my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at());
+				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1')) {
+					if(defined($body)) {
+						if($ENV{'IF_MODIFIED_SINCE'}) {
+							my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
+							my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at());
 
-						if($r >= $a) {
-							push @o, "Status: 304 Not Modified";
-							$send_body = 0;
-							$send_headers = 0;
+							if($r >= $a) {
+								push @o, "Status: 304 Not Modified";
+								$send_body = 0;
+								$send_headers = 0;
+							}
 						}
-					}
-					if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
-						if(!defined($etag)) {
-							$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+						if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
+							if(!defined($etag)) {
+								$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+							}
+							if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+								push @o, "Status: 304 Not Modified";
+								$send_body = 0;
+								$send_headers = 0;
+							}
 						}
-						if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
-							push @o, "Status: 304 Not Modified";
-							$send_body = 0;
-							$send_headers = 0;
+					} else {
+						# 304 can be sent irrespective of the value of gzip - so check
+						# for both in the cache
+						my $otherzip = !$isgzipped;
+						my $otherbody = $cache->get("CGI::Buffer/$key/$otherzip");
+
+						if(defined($otherbody)) {
+							if($ENV{'IF_MODIFIED_SINCE'}) {
+								my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
+								my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$otherzip")->created_at());
+
+								if($r >= $a) {
+									push @o, "Status: 304 Not Modified";
+									$send_body = 0;
+									$send_headers = 0;
+								}
+							}
+							if(!defined($etag)) {
+								$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($otherbody))->hexdigest() . '"';
+							}
+							if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+								push @o, "Status: 304 Not Modified";
+								$send_body = 0;
+								$send_headers = 0;
+							}
 						}
 					}
 				}

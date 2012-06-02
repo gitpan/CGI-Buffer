@@ -1,10 +1,15 @@
 Revision history for CGI-Buffer
 
+0.46	Sat Jun  2 14:02:39 EDT 2012
+	304 can be sent irrespective of the value of gzip - so check
+	for both in the cache
+
 0.45	Tue May 29 12:19:41 EDT 2012
 	Honour Cache-Control: private
-	Look at If-Modified-Since before If-None-Match to reduce etag calculations
-	Unlikely possibility: if cached headers have an etag that matches our body
-		but we somehow missed that, then send 304
+	Look at If-Modified-Since before If-None-Match to reduce etag
+		calculations
+	Unlikely possibility: if cached headers have an etag that matches our
+		body but we somehow missed that, then send 304
 
 0.44	Mon May 28 10:39:57 EDT 2012
 	Corrected logic error
