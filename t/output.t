@@ -11,7 +11,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 54;
+use Test::More tests => 55;
 use File::Temp;
 use Compress::Zlib;
 # use Test::NoWarnings;	# HTML::Clean has them
@@ -301,11 +301,11 @@ OUTPUT: {
 	ok($output !~ /ETag: "([A-Za-z0-F0-f]{32})"/m);
 
 	ok($output !~ /^Status: 304 Not Modified/mi);
-
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
-	ok(length($body) eq $length);
+	ok(length($body) != 0);
 
 	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
 	ok(defined($length));
+	ok($length == length($body));
 }

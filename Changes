@@ -1,8 +1,12 @@
 Revision history for CGI-Buffer
 
+0.47	Fri Jun 15 12:56:57 EDT 2012
+	Fix bug where 307 wasn't sent if the first request set encoding to gzip
+		and subsequent check didn't
+
 0.46	Sat Jun  2 14:02:39 EDT 2012
 	304 can be sent irrespective of the value of gzip - so check
-	for both in the cache
+		for both in the cache
 
 0.45	Tue May 29 12:19:41 EDT 2012
 	Honour Cache-Control: private

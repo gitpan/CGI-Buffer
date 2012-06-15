@@ -17,11 +17,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.46
+Version 0.47
 
 =cut
 
-our $VERSION = '0.46';
+our $VERSION = '0.47';
 
 =head1 SYNOPSIS
 
@@ -243,6 +243,8 @@ END {
 		# Maintain separate caches for gzipped and non gzipped so that
 		# browsers get what they ask for and can support
 		if(!defined($body)) {
+			# Nothing has been output yet, so we can check if it's
+			# OK to send 304 if possible
 			if($send_body) {
 				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
 				if($ENV{'SERVER_PROTOCOL'} &&
@@ -285,13 +287,19 @@ END {
 									$send_headers = 0;
 								}
 							}
-							if(!defined($etag)) {
-								$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($otherbody))->hexdigest() . '"';
-							}
-							if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
-								push @o, "Status: 304 Not Modified";
-								$send_body = 0;
-								$send_headers = 0;
+							if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
+								if($otherzip) {
+									require Compress::Zlib;
+									Compress::Zlib->import;
+
+									$otherbody = Compress::Zlib::memGunzip(\$otherbody);
+								}
+								my $otheretag = '"' . Digest::MD5->new->add(Encode::encode_utf8($otherbody))->hexdigest() . '"';
+								if ($otheretag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+									push @o, "Status: 304 Not Modified";
+									$send_body = 0;
+									$send_headers = 0;
+								}
 							}
 						}
 					}
