@@ -10,6 +10,8 @@ use Carp;
 use Encode;
 use DateTime;
 use HTTP::Date;
+use File::Spec;
+use Time::localtime;
 
 =head1 NAME
 
@@ -17,11 +19,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.47
+Version 0.48
 
 =cut
 
-our $VERSION = '0.47';
+our $VERSION = '0.48';
 
 =head1 SYNOPSIS
 
@@ -72,7 +74,7 @@ BEGIN {
 	use Exporter();
 	use vars qw($VERSION $buf $pos $headers $header $header_name
 				$header_value $body @content_type $etag $send_body @o
-				$send_headers);
+				$stats_file $send_headers);
 
 	$CGI::Buffer::buf = IO::String->new;
 	$CGI::Buffer::old_buf = select($CGI::Buffer::buf);
@@ -358,6 +360,24 @@ END {
 		}
 	}
 
+	if($stats_file) {
+		open(my $fout, '>>', $stats_file);
+
+		print $fout ctime() . "\n";
+		if($fout) {
+			while (my ($key,$value) = each %ENV) {
+				print $fout "$key=$value\n";
+			}
+			print $fout "send_headers = $send_headers\n";
+			print $fout "send_body = $send_body\n";
+			print $fout join("\r\n", @o);
+
+			close $fout;
+		} else {
+			Carp::carp "Can't open stats_file $stats_file for appending";
+		}
+	}
+
 	if($body_length && $send_body) {
 		push @o, '';
 		push @o, $body;
@@ -402,6 +422,7 @@ Set various options and override default values.
 	optimise_content => 0,	# optimise your program's HTML, CSS and JavaScript
 	cache => CHI->new(driver => 'File'),	# cache requests
 	cache_key => 'string'	# key for the cache
+	stats_file => '/tmp/stats'	# File to keep statistics of CGI::Buffer
     );
 
 If no cache_key is given, one will be generated which may not be unique.
@@ -442,6 +463,19 @@ sub init {
 	}
 	if(defined($params{optimise_content})) {
 		$optimise_content = $params{optimise_content};
+	}
+	if(defined($params{stats_file})) {
+		my $filename = $params{stats_file};
+
+		unless(File::Spec->file_name_is_absolute($filename)) {
+			Carp::carp "stats_file $filename isn't absolute";
+			return;
+		}
+		if(-d $filename) {
+			Carp::carp "stats_file $filename is a directory";
+			return;
+		}
+		$stats_file = $filename;
 	}
 
 	# Unsafe options - must be called before output has been started

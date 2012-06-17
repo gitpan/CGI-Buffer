@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.48	Sun Jun 17 08:48:25 EDT 2012
+	Added stats_file option
+
 0.47	Fri Jun 15 12:56:57 EDT 2012
 	Fix bug where 307 wasn't sent if the first request set encoding to gzip
 		and subsequent check didn't

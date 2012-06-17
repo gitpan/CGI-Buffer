@@ -25,6 +25,7 @@ requires:
   DateTime: 0
   Digest::MD5: 0
   Encode: 0
+  File::Spec: 0
   HTML::Packer: 1
   HTTP::Date: 0
   IO::CaptureOutput: 0
@@ -32,4 +33,5 @@ requires:
   JavaScript::Packer: 1.006003
   Test::Kwalitee: 0
   Test::More: 0.82
-version: 0.47
+  Time::localtime: 0
+version: 0.48

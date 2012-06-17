@@ -39,16 +39,18 @@
             "DateTime" : "0",
             "Digest::MD5" : "0",
             "Encode" : "0",
+            "File::Spec" : "0",
             "HTML::Packer" : "1",
             "HTTP::Date" : "0",
             "IO::CaptureOutput" : "0",
             "IO::String" : "0",
             "JavaScript::Packer" : "1.006003",
             "Test::Kwalitee" : "0",
-            "Test::More" : "0.82"
+            "Test::More" : "0.82",
+            "Time::localtime" : "0"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.47"
+   "version" : "0.48"
 }
