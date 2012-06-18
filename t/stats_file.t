@@ -47,10 +47,10 @@ STATS_FILE: {
 	open(my $fin, '<', '/tmp/stats_file');
 	ok(defined($fin));
 	while(<$fin>) {
-		if(/^ETag:/m) {
+		if(/^\tETag:/m) {
 			$found_etag++;
 		}
-		if(/send_body = 1/m) {
+		if(/^\tsend_body = 1$/m) {
 			$found_send_body++;
 		}
 	}

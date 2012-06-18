@@ -34,4 +34,4 @@ requires:
   Test::Kwalitee: 0
   Test::More: 0.82
   Time::localtime: 0
-version: 0.48
+version: 0.49

@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.49	Sun Jun 17 22:57:52 EDT 2012
+	Made the stats_file more readable
+	Fixed IF_MODIFIED_SINCE which was often not working
+
 0.48	Sun Jun 17 08:48:25 EDT 2012
 	Added stats_file option
 

@@ -19,11 +19,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.48
+Version 0.49
 
 =cut
 
-our $VERSION = '0.48';
+our $VERSION = '0.49';
 
 =head1 SYNOPSIS
 
@@ -74,7 +74,7 @@ BEGIN {
 	use Exporter();
 	use vars qw($VERSION $buf $pos $headers $header $header_name
 				$header_value $body @content_type $etag $send_body @o
-				$stats_file $send_headers);
+				$stats_file);
 
 	$CGI::Buffer::buf = IO::String->new;
 	$CGI::Buffer::old_buf = select($CGI::Buffer::buf);
@@ -96,7 +96,6 @@ END {
 	} else {
 		$send_body = 1;
 	}
-	$send_headers = 1;
 
 	if($headers) {
 		foreach my $header (split(/\r?\n/, $headers)) {
@@ -191,6 +190,8 @@ END {
 		}
 	}
 
+	my $status = 200;
+
 	# Generate the eTag before compressing, since the compressed data
 	# includes the mtime field which changes thus causing a different
 	# Etag to be generated
@@ -200,10 +201,10 @@ END {
 			$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 			push @o, "ETag: $etag";
 			if ($ENV{'HTTP_IF_NONE_MATCH'}) {
-				if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+				if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
 					push @o, "Status: 304 Not Modified";
 					$send_body = 0;
-					$send_headers = 0;
+					$status = 304;
 				}
 			}
 		}
@@ -252,24 +253,24 @@ END {
 				if($ENV{'SERVER_PROTOCOL'} &&
 				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1')) {
 					if(defined($body)) {
-						if($ENV{'IF_MODIFIED_SINCE'}) {
-							my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
-							my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at());
+						if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
+							my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
+							my $a = $cache->get_object("CGI::Buffer/$key/$isgzipped")->created_at();
 
 							if($r >= $a) {
 								push @o, "Status: 304 Not Modified";
+								$status = 304;
 								$send_body = 0;
-								$send_headers = 0;
 							}
 						}
 						if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
 							if(!defined($etag)) {
 								$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 							}
-							if ($etag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+							if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
 								push @o, "Status: 304 Not Modified";
+								$status = 304;
 								$send_body = 0;
-								$send_headers = 0;
 							}
 						}
 					} else {
@@ -279,14 +280,14 @@ END {
 						my $otherbody = $cache->get("CGI::Buffer/$key/$otherzip");
 
 						if(defined($otherbody)) {
-							if($ENV{'IF_MODIFIED_SINCE'}) {
-								my $r = DateTime->new($ENV{'IF_MODIFIED_SINCE'});
-								my $a = DateTime->new($cache->get_object("CGI::Buffer/$key/$otherzip")->created_at());
+							if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
+								my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
+								my $a = $cache->get_object("CGI::Buffer/$key/$otherzip")->created_at();
 
 								if($r >= $a) {
 									push @o, "Status: 304 Not Modified";
+									$status = 304;
 									$send_body = 0;
-									$send_headers = 0;
 								}
 							}
 							if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
@@ -297,35 +298,45 @@ END {
 									$otherbody = Compress::Zlib::memGunzip(\$otherbody);
 								}
 								my $otheretag = '"' . Digest::MD5->new->add(Encode::encode_utf8($otherbody))->hexdigest() . '"';
-								if ($otheretag =~ m/$ENV{'HTTP_IF_NONE_MATCH'}/) {
+								if ($otheretag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
 									push @o, "Status: 304 Not Modified";
+									$status = 304;
 									$send_body = 0;
-									$send_headers = 0;
 								}
 							}
 						}
 					}
 				}
 			}
-			if($send_headers) {
-				my $hkey = "CGI::Buffer/$key/headers";
-				$headers = $cache->get($hkey);
+			my $hkey = "CGI::Buffer/$key/headers";
+			$headers = $cache->get($hkey);
+			push @o, "X-CGI-Buffer-$VERSION: Hit";
+			if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
+				if($status != 304) {
+					my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
+					my $a = $cache->get_object($hkey)->created_at();
+
+					if($r >= $a) {
+						push @o, "Status: 304 Not Modified";
+						$send_body = 0;
+					}
+				}
+			} else {
 				if($generate_last_modified) {
 					push @o, "Last-Modified: " . HTTP::Date::time2str($cache->get_object($hkey)->created_at());
 				}
-				push @o, "X-CGI-Buffer-$VERSION: Hit";
-				if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
-					if(defined($body) && !defined($etag)) {
-						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
-					}
-					if(defined($etag) && ($headers =~ /^ETag:\s+(.+)$/mi)) {
-						if($1 eq $etag) {
-							push @o, "Status: 304 Not Modified";
-							$send_body = 0;
-							$send_headers = 0;
-						}
-					}
+			}
+			if(defined($body) && !defined($etag)) {
+				$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+			}
+			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
+				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/)) {
+					push @o, "Status: 304 Not Modified";
+					$send_body = 0;
+					$status = 304;
 				}
+			} elsif($generate_etag && ($headers !~ /^ETag: /m)) {
+				push @o, "ETag: $etag";
 			}
 		} else {
 			unless($cache_age) {
@@ -349,15 +360,13 @@ END {
 
 	my $body_length = defined($body) ? length($body) : 0;
 
-	if($send_headers) {
-		if(defined($headers) && length($headers)) {
-			push @o, $headers;
-			if($body && $send_body) {
-				push @o, "Content-Length: $body_length";
-			}
-		} else {
-			push @o, "X-CGI-Buffer-$VERSION: No headers";
+	if(defined($headers) && length($headers)) {
+		push @o, $headers;
+		if($body && $send_body) {
+			push @o, "Content-Length: $body_length";
 		}
+	} else {
+		push @o, "X-CGI-Buffer-$VERSION: No headers";
 	}
 
 	if($stats_file) {
@@ -366,11 +375,14 @@ END {
 		print $fout ctime() . "\n";
 		if($fout) {
 			while (my ($key,$value) = each %ENV) {
-				print $fout "$key=$value\n";
+				print $fout "\t$key=$value\n";
 			}
-			print $fout "send_headers = $send_headers\n";
-			print $fout "send_body = $send_body\n";
-			print $fout join("\r\n", @o);
+			print $fout "\tsend_body = $send_body\n";
+			if(scalar @o) {
+				print $fout "\t";
+			}
+			print $fout join("\n\t", @o);
+			print $fout "\n";
 
 			close $fout;
 		} else {
@@ -421,8 +433,8 @@ Set various options and override default values.
 	compress_content => 1,	# if gzip the output
 	optimise_content => 0,	# optimise your program's HTML, CSS and JavaScript
 	cache => CHI->new(driver => 'File'),	# cache requests
-	cache_key => 'string'	# key for the cache
-	stats_file => '/tmp/stats'	# File to keep statistics of CGI::Buffer
+	cache_key => 'string',		# key for the cache
+	stats_file => '/tmp/stats',	# File to keep statistics of CGI::Buffer
     );
 
 If no cache_key is given, one will be generated which may not be unique.
