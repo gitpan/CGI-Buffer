@@ -11,7 +11,7 @@ use Encode;
 use DateTime;
 use HTTP::Date;
 use File::Spec;
-use Time::localtime;
+use Time::localtime;	# For ctime
 
 =head1 NAME
 
@@ -19,11 +19,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.49
+Version 0.50
 
 =cut
 
-our $VERSION = '0.49';
+our $VERSION = '0.50';
 
 =head1 SYNOPSIS
 
@@ -192,6 +192,10 @@ END {
 
 	my $status = 200;
 
+	if($headers =~ /^Status: (\d+)/) {
+		$status = $1;
+	}
+
 	# Generate the eTag before compressing, since the compressed data
 	# includes the mtime field which changes thus causing a different
 	# Etag to be generated
@@ -201,7 +205,7 @@ END {
 			$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 			push @o, "ETag: $etag";
 			if ($ENV{'HTTP_IF_NONE_MATCH'}) {
-				if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
+				if(($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
 					push @o, "Status: 304 Not Modified";
 					$send_body = 0;
 					$status = 304;
@@ -251,7 +255,8 @@ END {
 			if($send_body) {
 				$body = $cache->get("CGI::Buffer/$key/$isgzipped");
 				if($ENV{'SERVER_PROTOCOL'} &&
-				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1')) {
+				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
+				  ($status == 200)) {
 					if(defined($body)) {
 						if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
 							my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
@@ -265,7 +270,17 @@ END {
 						}
 						if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
 							if(!defined($etag)) {
-								$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+								# Remember: always do etag on the unzipped version
+								# if($isgzipped) {
+									# FIXME: gives 500 error
+									# require Compress::Zlib;
+									# Compress::Zlib->import;
+# 
+									# my $otherbody = Compress::Zlib::memGunzip(\$body);
+									# $etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($otherbody))->hexdigest() . '"';
+								# } else {
+									$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+								# }
 							}
 							if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
 								push @o, "Status: 304 Not Modified";
@@ -321,21 +336,19 @@ END {
 						$send_body = 0;
 					}
 				}
-			} else {
-				if($generate_last_modified) {
-					push @o, "Last-Modified: " . HTTP::Date::time2str($cache->get_object($hkey)->created_at());
-				}
+			} elsif($generate_last_modified) {
+				push @o, "Last-Modified: " . HTTP::Date::time2str($cache->get_object($hkey)->created_at());
 			}
 			if(defined($body) && !defined($etag)) {
 				$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 			}
 			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
-				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/)) {
+				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
 					push @o, "Status: 304 Not Modified";
 					$send_body = 0;
 					$status = 304;
 				}
-			} elsif($generate_etag && ($headers !~ /^ETag: /m)) {
+			} elsif($generate_etag && defined($etag) && ((!defined($headers)) || ($headers !~ /^ETag: /m))) {
 				push @o, "ETag: $etag";
 			}
 		} else {
