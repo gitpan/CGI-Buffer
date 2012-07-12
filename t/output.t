@@ -11,7 +11,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 55;
+use Test::More tests => 54;
 use File::Temp;
 use Compress::Zlib;
 # use Test::NoWarnings;	# HTML::Clean has them
@@ -29,7 +29,7 @@ OUTPUT: {
 	print $tmp "use CGI::Buffer;\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY>   Hello World</BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML><BODY>   Hello, world</BODY></HTML>\\n\";\n";
 
 	open(my $fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -43,7 +43,7 @@ OUTPUT: {
 	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	my $length = $1;
 	ok(defined($length));
-	ok($output =~ /<HTML><BODY>   Hello World<\/BODY><\/HTML>/m);
+	ok($output =~ /<HTML><BODY>   Hello, world<\/BODY><\/HTML>/m);
 	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
 
@@ -55,7 +55,7 @@ OUTPUT: {
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY>    Hello World</BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML><BODY>    Hello, world</BODY></HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -70,7 +70,7 @@ OUTPUT: {
 	$length = $1;
 	ok(defined($length));
 	# Extra spaces should have been removed
-	ok($output =~ /<HTML><BODY> Hello World<\/BODY><\/HTML>/mi);
+	ok($output =~ /<HTML><BODY> Hello, world<\/BODY><\/HTML>/mi);
 	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
 
@@ -85,7 +85,7 @@ OUTPUT: {
 	print $tmp "use CGI::Buffer;\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML><HEAD>Test</HEAD><BODY><P>Hello, world></BODY></HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -99,9 +99,10 @@ OUTPUT: {
 	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
 	ok(defined($length));
-	# It's gzipped, so it won't include this
-	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
-	ok($output =~ /^Content-Encoding: gzip/m);
+	# It's not gzipped, because it's so small the gzip version would be
+	# bigger
+	ok($output =~ /<HTML><HEAD>Test<\/HEAD><BODY><P>Hello, world><\/BODY><\/HTML>/m);
+	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
@@ -115,10 +116,12 @@ OUTPUT: {
 			print $tmp "use lib '$_';\n";
 		}
 	}
-	print $tmp "use CGI::Buffer {optimise_content => 1};\n";
+	print $tmp "use CGI::Buffer {optimise_content => 0};\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
+	# Put in a large body so that it gzips - small bodies won't
+	print $tmp "print \"<!DOCTYPE HTML PUBLIC \\\"-//W3C//DTD HTML 4.01 Transitional//EN\\n\";\n";
+	print $tmp "print \"<HTML><HEAD><TITLE>Hello, world</TITLE></HEAD><BODY><P>The quick brown fox jumped over the lazy dog.</P></BODY></HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -132,14 +135,13 @@ OUTPUT: {
 	ok($output =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
 	ok(defined($length));
-	ok($output !~ /<HTML><BODY>Hello World<\/BODY><\/HTML>/m);
 	ok($output =~ /^Content-Encoding: gzip/m);
 	ok($output =~ /ETag: "[A-Za-z0-F0-f]{32}"/m);
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
 	$body = Compress::Zlib::memGunzip($body);
-	ok($body eq '<HTML><BODY>Hello World</BODY></HTML>');
+	ok($body =~ /<HTML><HEAD><TITLE>Hello, world<\/TITLE><\/HEAD><BODY><P>The quick brown fox jumped over the lazy dog.<\/P><\/BODY><\/HTML>\n$/);
 
 	#..........................................
 	delete $ENV{'SERVER_PROTOCOL'};

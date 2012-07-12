@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.51	Thu Jul 12 11:20:19 BST 2012
+	Store the etag value in the cache to ensure correctness
+	Added src/testit to check etag and last-modified HTTP headers
+
 0.50	Tue Jul 10 19:28:36 BST 2012
 	Fixed use of an uninitialised variable
 	Don't set 304 if status != 200

@@ -5,6 +5,7 @@ README
 ignore.txt
 lib/CGI/Buffer.pm
 META.yml                                 Module meta-data (added by MakeMaker)
+src/testit
 t/00-load.t
 t/boiler.t
 t/coverage.t

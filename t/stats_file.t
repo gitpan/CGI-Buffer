@@ -26,7 +26,7 @@ SKIP: {
 		print $tmp "use CGI::Buffer {stats_file => '/tmp/stats_file', generate_etag => 1};\n";
 		print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 		print $tmp "print \"\\n\\n\";\n";
-		print $tmp "print \"<HTML><BODY>Hello World</BODY></HTML>\\n\";\n";
+		print $tmp "print \"<HTML><BODY>Hello, world</BODY></HTML>\\n\";\n";
 
 		open(my $fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -38,7 +38,9 @@ SKIP: {
 		close $tmp;
 
 		ok($output =~ /^Content-Length:\s+(\d+)/m);
-		ok($output =~ /^Content-Encoding: gzip/m);
+		# It's so small that the gzip would be larger than the ungzipped
+		# so CGI::Buffer won't gzip even though it was asked to
+		ok($output !~ /^Content-Encoding: gzip/m);
 		ok($output =~ /^ETag: "/m);
 
 		my $found_etag = 0;
