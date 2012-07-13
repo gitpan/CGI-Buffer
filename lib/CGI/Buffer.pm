@@ -19,11 +19,11 @@ CGI::Buffer - Optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.51
+Version 0.52
 
 =cut
 
-our $VERSION = '0.51';
+our $VERSION = '0.52';
 
 =head1 SYNOPSIS
 
@@ -323,22 +323,20 @@ END {
 					}
 				}
 			}
-			my $hkey = "CGI::Buffer/$key/$isgzipped/headers";
-			$headers = $cache->get($hkey);
+			$headers = $cache->get("CGI::Buffer/$key/$isgzipped/headers");
 			push @o, "X-CGI-Buffer-$VERSION: Hit";
-			if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
-				if($status != 304) {
+			my $cobject = $cache->get_object("CGI::Buffer/$key/$isgzipped/body");
+			if($cobject) {
+				if($ENV{'HTTP_IF_MODIFIED_SINCE'} && ($status != 304)) {
 					my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
-					my $a = $cache->get_object($hkey)->created_at();
-
-					if($r >= $a) {
+					if($r >= $cobject->created_at()) {
 						push @o, "Status: 304 Not Modified";
 						$status = 304;
 						$send_body = 0;
 					}
+				} elsif($generate_last_modified) {
+					push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
 				}
-			} elsif($generate_last_modified) {
-				push @o, "Last-Modified: " . HTTP::Date::time2str($cache->get_object($hkey)->created_at());
 			}
 			$etag = $cache->get("CGI::Buffer/$key/$isgzipped/etag");
 			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
@@ -360,7 +358,7 @@ END {
 			$cache->set("CGI::Buffer/$key/$isgzipped/body", $body, $cache_age);
 			if(scalar(@o)) {
 				$cache->set("CGI::Buffer/$key/$isgzipped/headers", "$headers\r\n" . join("\r\n", @o), $cache_age);
-			} else {
+			} elsif($headers) {
 				$cache->set("CGI::Buffer/$key/$isgzipped/headers", $headers, $cache_age);
 			}
 			if($generate_etag && defined($etag)) {

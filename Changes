@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.52	Fri Jul 13 09:27:43 BST 2012
+	Don't create cache entry for empty headers
+	src/testit: check etag and last-modifed don't return 304 when the
+		content has changed
+
 0.51	Thu Jul 12 11:20:19 BST 2012
 	Store the etag value in the cache to ensure correctness
 	Added src/testit to check etag and last-modified HTTP headers

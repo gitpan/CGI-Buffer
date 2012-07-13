@@ -18,9 +18,9 @@ die "Usage: $0 url" unless(@ARGV);
 
 my $ua = LWP::UserAgent->new(conn_cache => LWP::ConnCache->new());
 $ua->agent($0);
-# $ua->env_proxy();	# Don't get this, because it may not pass on all
-			# information back to here. Squid does that :-(
-$ua->no_proxy($ARGV[0]);	# Sigh :-(
+# Turn off proxy, because the proxy may not pass on all
+# information back to here. Squid does that :-(
+$ua->no_proxy($ARGV[0]);
 my $request = HTTP::Request->new(GET => $ARGV[0]);
 $request->protocol('HTTP/1.1');
 
@@ -61,6 +61,14 @@ if(defined($r->header('ETag'))) {
 		warn $r1->status_line();
 		warn 'Didn\'t get 304 when setting If-None-Match header';
 		$rc++;
+	} else {
+		$request->header('If-None-Match' => '0' x 32);
+		$r1 = $ua->request($request);
+		if($r1->code() != 200) {
+			warn $r1->status_line();
+			warn 'Didn\'t get 200 when If-None-Match header doesn\t match';
+			$rc++;
+		}
 	}
 	$request->remove_header('If-None-Match');
 } else {
@@ -76,6 +84,14 @@ if(defined($r->header('Last-Modified'))) {
 		warn 'sent: ' . $request->header('If-Modified-Since') . ' got ' . $r->header('Last-Modified');
 		warn 'Didn\'t get 304 when setting If-Modified-Since header';
 		$rc++;
+	} else {
+		$request->header('If-Modified-Since' => 'Thu, 01 Jan 1970 00:00:00 GMT');
+		$r = $ua->request($request);
+		if($r->code() != 200) {
+			warn $r->status_line();
+			warn 'Didn\'t get 200 when If-Modified-Since header indicates there has been a change';
+			$rc++;
+		}
 	}
 } else {
 	# foreach($r->header_field_names()) {
