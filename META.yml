@@ -1,5 +1,5 @@
 ---
-abstract: 'Optimise the output of a CGI Program'
+abstract: 'Verify and optimise the output of a CGI Program'
 author:
   - 'Nigel Horne <njh@bandsman.co.uk>'
 build_requires:
@@ -26,6 +26,7 @@ requires:
   Digest::MD5: 0
   Encode: 0
   File::Spec: 0
+  HTML::Lint: 0
   HTML::Packer: 1
   HTTP::Date: 0
   IO::CaptureOutput: 0
@@ -34,4 +35,4 @@ requires:
   Test::Kwalitee: 0
   Test::More: 0.82
   Time::localtime: 0
-version: 0.52
+version: 0.53

@@ -15,17 +15,20 @@ use Time::localtime;	# For ctime
 
 =head1 NAME
 
-CGI::Buffer - Optimise the output of a CGI Program
+CGI::Buffer - Verify and optimise the output of a CGI Program
 
 =head1 VERSION
 
-Version 0.52
+Version 0.53
 
 =cut
 
-our $VERSION = '0.52';
+our $VERSION = '0.53';
 
 =head1 SYNOPSIS
+
+CGI::Buffer verifies the HTML that you produce by passing it through
+C<HTML::Lint>.
 
 CGI::Buffer optimises CGI programs by compressing output to speed up the
 transmission and by nearly seamlessly making use of client and server caches.
@@ -65,6 +68,7 @@ our $generate_etag = 1;
 our $generate_last_modified = 1;
 our $compress_content = 1;
 our $optimise_content = 0;
+our $lint_content = 1;
 our $cache;
 our $cache_age;
 our $cache_key;
@@ -110,88 +114,107 @@ END {
 		$body = undef;
 	}
 
-	if($optimise_content && defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
-		# require HTML::Clean;
-		require HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
+	if(defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
+		if($optimise_content) {
+			# require HTML::Clean;
+			require HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
 
-                $body =~ s/\r\n/\n/gs;
-                $body =~ s/\s+\n/\n/gs;
-                $body =~ s/\n+/\n/gs;
-                $body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gis;
-                $body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gis;
-                $body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gis;
-                $body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
-		$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
-                $body =~ s/\s+\<\/html/\<\/html/is;
-                $body =~ s/\s+\<\/body/\<\/body/is;
-                $body =~ s/\n\s+|\s+\n/\n/g;
-                $body =~ s/\t+/ /g;
-                $body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
-                $body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
-                $body =~ s/\<p\>\s/\<p\>/gi;
-                $body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
-                $body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
-                $body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
-		$body =~ s/\<\/td\>\s*\<td\>/\<\/td\>\<td\>/gis;
-                $body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
-                $body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
-                $body =~ s/\<br\>\s/\<br\>/gi;
-                $body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
-                $body =~ s/\s+\<p\>/\<p\>/gi;
-                $body =~ s/\s+\<script/\<script/gi;
-                $body =~ s/\<td\>\s+/\<td\>/gi;
-		$body =~ s/\s+\<a\s+href="(.+?)"\>\s+/ <a href="$1">/gis;
-                $body =~ s/\s\s/ /gs;
+			$body =~ s/\r\n/\n/gs;
+			$body =~ s/\s+\n/\n/gs;
+			$body =~ s/\n+/\n/gs;
+			$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gis;
+			$body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gis;
+			$body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gis;
+			$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
+			$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
+			$body =~ s/\s+\<\/html/\<\/html/is;
+			$body =~ s/\s+\<\/body/\<\/body/is;
+			$body =~ s/\n\s+|\s+\n/\n/g;
+			$body =~ s/\t+/ /g;
+			$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
+			$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
+			$body =~ s/\<p\>\s/\<p\>/gi;
+			$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
+			$body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
+			$body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
+			$body =~ s/\<\/td\>\s*\<td\>/\<\/td\>\<td\>/gis;
+			$body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
+			$body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
+			$body =~ s/\<br\>\s/\<br\>/gi;
+			$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
+			$body =~ s/\s+\<p\>/\<p\>/gi;
+			$body =~ s/\s+\<script/\<script/gi;
+			$body =~ s/\<td\>\s+/\<td\>/gi;
+			$body =~ s/\s+\<a\s+href="(.+?)"\>\s+/ <a href="$1">/gis;
+			$body =~ s/\s\s/ /gs;
 
-		unless(defined($info)) {
-			$info = CGI::Info->new();
+			unless(defined($info)) {
+				$info = CGI::Info->new();
+			}
+
+			my $href = $info->host_name();
+			my $protocol = $info->protocol();
+
+			unless($protocol) {
+				$protocol = 'http';
+			}
+
+			$body =~ s/<a\s+?href="$protocol:\/\/$href"/<a href="\/"/gim;
+			$body =~ s/<a\s+?href="$protocol:\/\/$href/<a href="/gim;
+
+			# TODO: <img border=0 src=...>
+			$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\/"/gim;
+			$body =~ s/<img\s+?src="$protocol:\/\/$href/<img src="/gim;
+
+			# Don't use HTML::Clean because of RT402
+			# my $h = new HTML::Clean(\$body);
+			# # $h->compat();
+			# $h->strip();
+			# my $ref = $h->data();
+
+			# Don't always do javascript 'best' since it's confused by
+			# the common <!-- HIDE technique.
+			# See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
+			my $options = {
+				remove_comments => 1,
+				remove_newlines => 0,
+				do_stylesheet => 'minify'
+			};
+			if($optimise_content >= 2) {
+				$options->{do_javascript} = 'best';
+				$body =~ s/(<script.*>)\s*<!--/$1/gi;
+				$body =~ s/\/\/-->\s*<\/script>/<\/script>/gi;
+			}
+			$body = HTML::Packer->init()->minify(\$body, $options);
+			if($optimise_content >= 2) {
+				# Change document.write("a"); document.write("b")
+				# into document.write("a"+"b");
+				# This will only change one occurance per script
+				$body =~ s/<script\s*?type\s*?=\s*?"text\/javascript"\s*?>(.*?)document\.write\((.+?)\);\s*?document\.write\((.+?)\)/<script type="text\/JavaScript">${1}document.write($2+$3)/igs;
+			}
 		}
+		if($lint_content) {
+			require HTML::Lint;
+			HTML::Lint->import;
 
-		my $href = $info->host_name();
-		my $protocol = $info->protocol();
+			my $lint = HTML::Lint->new();
+			$lint->parse($body);
 
-		unless($protocol) {
-			$protocol = 'http';
-		}
-
-		$body =~ s/<a\s+?href="$protocol:\/\/$href"/<a href="\/"/gim;
-		$body =~ s/<a\s+?href="$protocol:\/\/$href/<a href="/gim;
-
-		# TODO: <img border=0 src=...>
-		$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\/"/gim;
-		$body =~ s/<img\s+?src="$protocol:\/\/$href/<img src="/gim;
-
-		# Don't use HTML::Clean because of RT402
-		# my $h = new HTML::Clean(\$body);
-		# # $h->compat();
-		# $h->strip();
-		# my $ref = $h->data();
-
-		# Don't always do javascript 'best' since it's confused by
-		# the common <!-- HIDE technique.
-		# See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
-		my $options = {
-			remove_comments => 1,
-			remove_newlines => 0,
-			do_stylesheet => 'minify'
-		};
-		if($optimise_content >= 2) {
-			$options->{do_javascript} = 'best';
-			$body =~ s/(<script.*>)\s*<!--/$1/gi;
-			$body =~ s/\/\/-->\s*<\/script>/<\/script>/gi;
-		}
-		$body = HTML::Packer->init()->minify(\$body, $options);
-		if($optimise_content >= 2) {
-			# Change document.write("a"); document.write("b")
-			# into document.write("a"+"b");
-			# This will only change one occurance per script
-			$body =~ s/<script\s*?type\s*?=\s*?"text\/javascript"\s*?>(.*?)document\.write\((.+?)\);\s*?document\.write\((.+?)\)/<script type="text\/JavaScript">${1}document.write($2+$3)/igs;
+			if($lint->errors) {
+				$headers = 'Status: 500 Internal Server Error';
+				@o = ('Content: text/plain');
+				$body = '';
+				foreach my $error ($lint->errors) {
+					warn $error->where() . ': ' . $error->errtext() . "\n";
+					$body .= $error->where() . ': ' . $error->errtext() . "\n";
+				}
+			}
 		}
 	}
 
 	my $status = 200;
 
-	if(defined($headers) && ($headers =~ /^Status: (\d+)/)) {
+	if(defined($headers) && ($headers =~ /^Status: (\d+)/m)) {
 		$status = $1;
 	}
 
@@ -374,7 +397,9 @@ END {
 	my $body_length = defined($body) ? length($body) : 0;
 
 	if(defined($headers) && length($headers)) {
-		push @o, $headers;
+		# Put the original headers first, then those generated within
+		# CGI::Buffer
+		unshift @o, $headers;
 		if($body && $send_body) {
 			push @o, "Content-Length: $body_length";
 		}
@@ -438,8 +463,8 @@ Set various options and override default values.
 
     # Put this toward the top of your program before you do anything
     # By default, generate_tag and compress_content are both ON and
-    # optimise_content is OFF.  Set optimise_content to 2 to do aggressive
-    # JavaScript optimisations which may fail.
+    # optimise_content and lint_content are OFF.  Set optimise_content to 2 to
+    # do aggressive JavaScript optimisations which may fail.
     use CGI::Buffer;
     CGI::Buffer::init(
 	generate_etag => 1,	# make good use of client's cache
@@ -449,6 +474,7 @@ Set various options and override default values.
 	cache => CHI->new(driver => 'File'),	# cache requests
 	cache_key => 'string',		# key for the cache
 	stats_file => '/tmp/stats',	# File to keep statistics of CGI::Buffer
+	lint->content => 0,	# Pass through HTML::Lint
     );
 
 If no cache_key is given, one will be generated which may not be unique.
@@ -490,16 +516,17 @@ sub init {
 	if(defined($params{optimise_content})) {
 		$optimise_content = $params{optimise_content};
 	}
+	if(defined($params{lint_content})) {
+		$lint_content = $params{lint_content};
+	}
 	if(defined($params{stats_file})) {
 		my $filename = $params{stats_file};
 
 		unless(File::Spec->file_name_is_absolute($filename)) {
 			Carp::carp "stats_file $filename isn't absolute";
-			return;
 		}
 		if(-d $filename) {
 			Carp::carp "stats_file $filename is a directory";
-			return;
 		}
 		$stats_file = $filename;
 	}
@@ -509,7 +536,6 @@ sub init {
 	if($pos > 0) {
 		# Must do Carp::carp instead of carp for Test::Carp
 		Carp::carp "Too late to call init, $pos characters have been printed";
-		return;
 	}
 	unless(defined($ENV{'NO_CACHE'}) || defined($ENV{'NO_STORE'})) {
 		if(defined($params{cache})) {
@@ -602,7 +628,7 @@ sub is_cached {
 	# FIXME: It is remotely possible that is_valid will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
-	return $cache->is_valid("CGI::Buffer/$key/$isgzipped/body");
+	return defined($cache->is_valid("CGI::Buffer/$key/$isgzipped/body"));
 }
 
 sub _should_gzip {
@@ -654,7 +680,7 @@ your bug as I make changes.
 
 =head1 SEE ALSO
 
-HTML::Packer
+HTML::Packer, HTML::Lint
 
 =head1 SUPPORT
 

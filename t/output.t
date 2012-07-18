@@ -11,7 +11,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 54;
+use Test::More tests => 64;
 use File::Temp;
 use Compress::Zlib;
 # use Test::NoWarnings;	# HTML::Clean has them
@@ -209,6 +209,69 @@ OUTPUT: {
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
 	ok(length($body) eq $length);
+
+	#..........................................
+	$tmp = File::Temp->new();
+	if($ENV{'PERL5LIB'}) {
+		foreach (split(':', $ENV{'PERL5LIB'})) {
+			print $tmp "use lib '$_';\n";
+		}
+	}
+	print $tmp "use CGI::Buffer;\n";
+	print $tmp "CGI::Buffer::set_options(optimise_content => 1, lint_content=> 1);\n";
+	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
+	print $tmp "print \"\\n\\n\";\n";
+	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
+
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
+
+	$keep = $_;
+	undef $/;
+	$output = <$fout>;
+	$/ = $keep;
+
+	close $tmp;
+
+	ok($output !~ /www.example.com/m);
+	ok($output =~ /href="\/foo.htm"/m);
+	ok($output =~ /^Content-Length:\s+(\d+)/m);
+	$length = $1;
+	ok(defined($length));
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(length($body) eq $length);
+
+	#..........................................
+	diag('Ignore warning about <a> is never closed');
+	delete $ENV{'SERVER_NAME'};
+	$tmp = File::Temp->new();
+	if($ENV{'PERL5LIB'}) {
+		foreach (split(':', $ENV{'PERL5LIB'})) {
+			print $tmp "use lib '$_';\n";
+		}
+	}
+	print $tmp "use CGI::Buffer;\n";
+	print $tmp "CGI::Buffer::set_options(optimise_content => 1, lint_content=> 1);\n";
+	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
+	print $tmp "print \"\\n\\n\";\n";
+	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com/foo.htm\\\">Click</BODY></HTML>\\n\";\n";
+
+	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
+
+	$keep = $_;
+	undef $/;
+	$output = <$fout>;
+	$/ = $keep;
+
+	close $tmp;
+
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok($headers =~ /^Content-Length:\s+(\d+)/m);
+	$length = $1;
+	ok(defined($length));
+	ok(length($body) eq $length);
+	ok($headers =~ /^Status: 500/m);
+	ok($body =~ /<a>.+is never closed/);
 
 	#..........................................
 	$ENV{'SERVER_PROTOCOL'} = 'HTTP/1.1';

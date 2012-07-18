@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.53	Wed Jul 18 10:57:50 BST 2012
+	Added support for lint_content to put output through HTML::Lint
+
 0.52	Fri Jul 13 09:27:43 BST 2012
 	Don't create cache entry for empty headers
 	src/testit: check etag and last-modifed don't return 304 when the
