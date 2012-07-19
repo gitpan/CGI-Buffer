@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.54	Thu Jul 19 13:53:58 BST 2012
+	lint_content is now off by default
+
 0.53	Wed Jul 18 10:57:50 BST 2012
 	Added support for lint_content to put output through HTML::Lint
 

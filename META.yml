@@ -1,5 +1,5 @@
 ---
-abstract: 'Verify and optimise the output of a CGI Program'
+abstract: 'Verify and Optimise CGI Output'
 author:
   - 'Nigel Horne <njh@bandsman.co.uk>'
 build_requires:
@@ -35,4 +35,4 @@ requires:
   Test::Kwalitee: 0
   Test::More: 0.82
   Time::localtime: 0
-version: 0.53
+version: 0.54

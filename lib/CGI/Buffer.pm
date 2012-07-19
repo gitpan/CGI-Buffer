@@ -15,15 +15,15 @@ use Time::localtime;	# For ctime
 
 =head1 NAME
 
-CGI::Buffer - Verify and optimise the output of a CGI Program
+CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.53
+Version 0.54
 
 =cut
 
-our $VERSION = '0.53';
+our $VERSION = '0.54';
 
 =head1 SYNOPSIS
 
@@ -68,7 +68,7 @@ our $generate_etag = 1;
 our $generate_last_modified = 1;
 our $compress_content = 1;
 our $optimise_content = 0;
-our $lint_content = 1;
+our $lint_content = 0;
 our $cache;
 our $cache_age;
 our $cache_key;

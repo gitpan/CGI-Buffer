@@ -1,5 +1,5 @@
 {
-   "abstract" : "Verify and optimise the output of a CGI Program",
+   "abstract" : "Verify and Optimise CGI Output",
    "author" : [
       "Nigel Horne <njh@bandsman.co.uk>"
    ],
@@ -53,5 +53,5 @@
       }
    },
    "release_status" : "stable",
-   "version" : "0.53"
+   "version" : "0.54"
 }
