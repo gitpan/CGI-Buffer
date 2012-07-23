@@ -19,11 +19,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.54
+Version 0.55
 
 =cut
 
-our $VERSION = '0.54';
+our $VERSION = '0.55';
 
 =head1 SYNOPSIS
 
@@ -372,20 +372,26 @@ END {
 				push @o, "ETag: $etag";
 			}
 		} else {
-			unless($cache_age) {
-				# It would be great if CHI::set() allowed
-				# the time to be 'lru' for least recently
-				# used.
-				$cache_age = '10 minutes';
-			}
-			$cache->set("CGI::Buffer/$key/$isgzipped/body", $body, $cache_age);
-			if(scalar(@o)) {
-				$cache->set("CGI::Buffer/$key/$isgzipped/headers", "$headers\r\n" . join("\r\n", @o), $cache_age);
-			} elsif($headers) {
-				$cache->set("CGI::Buffer/$key/$isgzipped/headers", $headers, $cache_age);
-			}
-			if($generate_etag && defined($etag)) {
-				$cache->set("CGI::Buffer/$key/$isgzipped/etag", $etag);
+			if($status == 200) {
+				unless($cache_age) {
+					# It would be great if CHI::set()
+					# allowed the time to be 'lru' for least
+					# recently # used.
+					$cache_age = '10 minutes';
+				}
+				$cache->set("CGI::Buffer/$key/$isgzipped/body", $body, $cache_age);
+				if($body && $send_body) {
+					my $body_length = length($body);
+					push @o, "Content-Length: $body_length";
+				}
+				if(scalar(@o)) {
+					$cache->set("CGI::Buffer/$key/$isgzipped/headers", "$headers\r\n" . join("\r\n", @o), $cache_age);
+				} elsif($headers) {
+					$cache->set("CGI::Buffer/$key/$isgzipped/headers", $headers, $cache_age);
+				}
+				if($generate_etag && defined($etag)) {
+					$cache->set("CGI::Buffer/$key/$isgzipped/etag", $etag);
+				}
 			}
 			if($generate_last_modified) {
 				push @o, "Last-Modified: " . HTTP::Date::time2str();
@@ -628,7 +634,8 @@ sub is_cached {
 	# FIXME: It is remotely possible that is_valid will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
-	return defined($cache->is_valid("CGI::Buffer/$key/$isgzipped/body"));
+	return defined($cache->is_valid("CGI::Buffer/$key/$isgzipped/body")) &&
+	       defined($cache->is_valid("CGI::Buffer/$key/$isgzipped/headers"));
 }
 
 sub _should_gzip {
