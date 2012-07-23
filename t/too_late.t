@@ -42,6 +42,7 @@ if($@) {
 			my $hash = {};
 			my $cache = CHI->new(driver => 'Memory', datastore => $hash);
 
+			diag("Ignore the error that it can't retrieve the given body");
 			does_carp(\&CGI::Buffer::set_options, cache => $cache, cache_key => 'xyzzy');
 
 			ok(CGI::Buffer::is_cached() == 0);

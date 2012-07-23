@@ -19,11 +19,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.55
+Version 0.56
 
 =cut
 
-our $VERSION = '0.55';
+our $VERSION = '0.56';
 
 =head1 SYNOPSIS
 
@@ -236,8 +236,8 @@ END {
 		}
 	}
 
-	my $isgzipped = 0;
 	my $encoding = _should_gzip();
+	my $unzipped_body = $body;
 
 	if((length($encoding) > 0) && defined($body)) {
 		if($ENV{'Range'} && !$cache) {
@@ -250,6 +250,7 @@ END {
 				} elsif($2) {
 					$body = substr($body, 0, $2);
 				}
+				$unzipped_body = $body;
 			}
 		}
 		if(length($body) >= MIN_GZIP_LEN) {
@@ -262,7 +263,6 @@ END {
 				$body = $nbody;
 				push @o, "Content-Encoding: $encoding";
 				push @o, "Vary: Accept-Encoding";
-				$isgzipped = 1;
 			}
 		}
 	}
@@ -273,17 +273,24 @@ END {
 		# Maintain separate caches for gzipped and non gzipped so that
 		# browsers get what they ask for and can support
 		if(!defined($body)) {
+			$headers = $cache->get("CGI::Buffer/$key/headers");
+			@o = ("X-CGI-Buffer-$VERSION: Hit");
+
+
 			# Nothing has been output yet, so we can check if it's
 			# OK to send 304 if possible
 			if($send_body) {
-				$body = $cache->get("CGI::Buffer/$key/$isgzipped/body");
+				$body = $cache->get("CGI::Buffer/$key/body");
+				if(!defined($body)) {
+					carp "Can't retrieve body for key $key";
+				}
 				if($ENV{'SERVER_PROTOCOL'} &&
 				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
 				  ($status == 200)) {
 					if(defined($body)) {
 						if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
 							my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
-							my $a = $cache->get_object("CGI::Buffer/$key/$isgzipped/body")->created_at();
+							my $a = $cache->get_object("CGI::Buffer/$key/body")->created_at();
 
 							if($r >= $a) {
 								push @o, "Status: 304 Not Modified";
@@ -293,17 +300,7 @@ END {
 						}
 						if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
 							if(!defined($etag)) {
-								# Remember: always do etag on the unzipped version
-								# if($isgzipped) {
-									# FIXME: gives 500 error
-									# require Compress::Zlib;
-									# Compress::Zlib->import;
-# 
-									# my $otherbody = Compress::Zlib::memGunzip(\$body);
-									# $etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($otherbody))->hexdigest() . '"';
-								# } else {
-									$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
-								# }
+								$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 							}
 							if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
 								push @o, "Status: 304 Not Modified";
@@ -311,44 +308,24 @@ END {
 								$send_body = 0;
 							}
 						}
-					} else {
-						# 304 can be sent irrespective of the value of gzip - so check
-						# for both in the cache
-						my $otherzip = !$isgzipped;
-						my $otherbody = $cache->get("CGI::Buffer/$key/$otherzip/body");
+						if($send_body && (length($encoding) > 0) && defined($body)) {
+							if(length($body) >= MIN_GZIP_LEN) {
+								require Compress::Zlib;
+								Compress::Zlib->import;
 
-						if(defined($otherbody)) {
-							if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
-								my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
-								my $a = $cache->get_object("CGI::Buffer/$key/$otherzip/body")->created_at();
-
-								if($r >= $a) {
-									push @o, "Status: 304 Not Modified";
-									$status = 304;
-									$send_body = 0;
-								}
-							}
-							if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
-								if($otherzip) {
-									require Compress::Zlib;
-									Compress::Zlib->import;
-
-									$otherbody = Compress::Zlib::memGunzip(\$otherbody);
-								}
-								my $otheretag = '"' . Digest::MD5->new->add(Encode::encode_utf8($otherbody))->hexdigest() . '"';
-								if ($otheretag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
-									push @o, "Status: 304 Not Modified";
-									$status = 304;
-									$send_body = 0;
+								# Avoid 'Wide character in memGzip'
+								my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
+								if(length($nbody) < length($body)) {
+									$body = $nbody;
+									push @o, "Content-Encoding: $encoding";
+									push @o, "Vary: Accept-Encoding";
 								}
 							}
 						}
 					}
 				}
 			}
-			$headers = $cache->get("CGI::Buffer/$key/$isgzipped/headers");
-			push @o, "X-CGI-Buffer-$VERSION: Hit";
-			my $cobject = $cache->get_object("CGI::Buffer/$key/$isgzipped/body");
+			my $cobject = $cache->get_object("CGI::Buffer/$key/body");
 			if($cobject) {
 				if($ENV{'HTTP_IF_MODIFIED_SINCE'} && ($status != 304)) {
 					my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
@@ -361,7 +338,7 @@ END {
 					push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
 				}
 			}
-			$etag = $cache->get("CGI::Buffer/$key/$isgzipped/etag");
+			$etag = $cache->get("CGI::Buffer/$key/etag");
 			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
 				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
 					push @o, "Status: 304 Not Modified";
@@ -376,21 +353,26 @@ END {
 				unless($cache_age) {
 					# It would be great if CHI::set()
 					# allowed the time to be 'lru' for least
-					# recently # used.
+					# recently used.
 					$cache_age = '10 minutes';
 				}
-				$cache->set("CGI::Buffer/$key/$isgzipped/body", $body, $cache_age);
+				$cache->set("CGI::Buffer/$key/body", $unzipped_body, $cache_age);
 				if($body && $send_body) {
 					my $body_length = length($body);
 					push @o, "Content-Length: $body_length";
 				}
 				if(scalar(@o)) {
-					$cache->set("CGI::Buffer/$key/$isgzipped/headers", "$headers\r\n" . join("\r\n", @o), $cache_age);
+					# Remember, we're storing the UNzipped
+					# version in the cache
+					my $c = "$headers\r\n" . join("\r\n", @o);
+					$c =~ s/^Content-Encoding: .+$//m;
+					$c =~ s/^Vary-Encoding: .+$//m;
+					$cache->set("CGI::Buffer/$key/headers", $c, $cache_age);
 				} elsif($headers) {
-					$cache->set("CGI::Buffer/$key/$isgzipped/headers", $headers, $cache_age);
+					$cache->set("CGI::Buffer/$key/headers", $headers, $cache_age);
 				}
 				if($generate_etag && defined($etag)) {
-					$cache->set("CGI::Buffer/$key/$isgzipped/etag", $etag);
+					$cache->set("CGI::Buffer/$key/etag", $etag);
 				}
 			}
 			if($generate_last_modified) {
@@ -628,14 +610,12 @@ sub is_cached {
 		return 0;
 	}
 	my $key = _generate_key();
-	my $encoding = _should_gzip();
-	my $isgzipped = (length($encoding) > 0) ? 1 : 0;
 
 	# FIXME: It is remotely possible that is_valid will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
-	return defined($cache->is_valid("CGI::Buffer/$key/$isgzipped/body")) &&
-	       defined($cache->is_valid("CGI::Buffer/$key/$isgzipped/headers"));
+	return defined($cache->is_valid("CGI::Buffer/$key/body")) &&
+	       defined($cache->is_valid("CGI::Buffer/$key/headers"));
 }
 
 sub _should_gzip {

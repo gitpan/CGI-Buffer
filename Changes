@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.56
+	Always store the unzipped body in the cache.  It uses more disc
+		space, but makes the code much simpler and more robust
+
 0.55	Mon Jul 23 12:14:34 BST 2012
 	Only store a response in the cache when HTTP status is 200
 	Ensure that the headers are in the cache as well as the body
