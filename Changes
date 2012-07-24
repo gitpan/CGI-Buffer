@@ -1,6 +1,11 @@
 Revision history for CGI-Buffer
 
-0.56
+0.57	Tue Jul 24 13:51:43 BST 2012
+	Use get() rather than is_valid()
+	If get on the body fails, remove the corresponding headers from the
+		cache
+
+0.56	Tue Jul 24 13:45:57 BST 2012
 	Always store the unzipped body in the cache.  It uses more disc
 		space, but makes the code much simpler and more robust
 

@@ -19,11 +19,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.56
+Version 0.57
 
 =cut
 
-our $VERSION = '0.56';
+our $VERSION = '0.57';
 
 =head1 SYNOPSIS
 
@@ -276,12 +276,12 @@ END {
 			$headers = $cache->get("CGI::Buffer/$key/headers");
 			@o = ("X-CGI-Buffer-$VERSION: Hit");
 
-
 			# Nothing has been output yet, so we can check if it's
 			# OK to send 304 if possible
 			if($send_body) {
 				$body = $cache->get("CGI::Buffer/$key/body");
 				if(!defined($body)) {
+					$cache->remove("CGI::Buffer/$key/headers");
 					carp "Can't retrieve body for key $key";
 				}
 				if($ENV{'SERVER_PROTOCOL'} &&
@@ -470,7 +470,7 @@ The cache_key should be a unique value dependent upon the values set by the
 browser.
 
 The cache object will be an instantiation of a class that understands get,
-set, created_at and is_valid, such as L<CHI>.
+set, remove and created_at, such as L<CHI>.
 
 To generate a last_modified header, you must give a cache object.
 
@@ -611,11 +611,13 @@ sub is_cached {
 	}
 	my $key = _generate_key();
 
-	# FIXME: It is remotely possible that is_valid will succeed, and the
+	# FIXME: It is remotely possible that this will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
-	return defined($cache->is_valid("CGI::Buffer/$key/body")) &&
-	       defined($cache->is_valid("CGI::Buffer/$key/headers"));
+	# Don't use get_valid, since I've found records where get_valid
+	#	succeeds, then the subsequent get fails
+	return defined($cache->get("CGI::Buffer/$key/body")) &&
+	       defined($cache->get("CGI::Buffer/$key/headers"));
 }
 
 sub _should_gzip {
