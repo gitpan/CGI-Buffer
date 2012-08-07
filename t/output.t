@@ -40,14 +40,16 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output =~ /^Content-Length:\s+(\d+)/m);
-	my $length = $1;
-	ok(defined($length));
-	ok($output =~ /<HTML><BODY>   Hello, world<\/BODY><\/HTML>/m);
-	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
+	ok($output !~ /^Content-Encoding: gzip/m);
 
 	my ($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+
+	ok($headers =~ /^Content-Length:\s+(\d+)/m);
+	my $length = $1;
+	ok(defined($length));
+
+	ok($body eq "<HTML><BODY>   Hello, world</BODY></HTML>\n");
 	ok(length($body) eq $length);
 
 	$tmp = File::Temp->new();
@@ -190,7 +192,7 @@ OUTPUT: {
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML><BODY><A HREF= \\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -221,7 +223,7 @@ OUTPUT: {
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1, lint_content=> 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY><A HREF=\\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML><BODY><A HREF= \n\\\"http://www.example.com/foo.htm\\\">Click</A></BODY></HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -232,14 +234,18 @@ OUTPUT: {
 
 	close $tmp;
 
-	ok($output !~ /www.example.com/m);
-	ok($output =~ /href="\/foo.htm"/m);
-	ok($output =~ /^Content-Length:\s+(\d+)/m);
-	$length = $1;
-	ok(defined($length));
+	# Server is www.example.com (set in a previous test), so the href
+	# should be optimised, therefore www.example.com shouldn't appear
+	# anywhere at all
+	ok($output !~ /www\.example\.com/m);
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+
+	ok($headers =~ /^Content-Length:\s+(\d+)/m);
+	$length = $1;
+	ok(defined($length));
 	ok(length($body) eq $length);
+	ok($body =~ /href="\/foo.htm"/mi);
 
 	#..........................................
 	diag('Ignore warning about <a> is never closed');
@@ -364,13 +370,14 @@ OUTPUT: {
 	close $tmp;
 
 	ok($output !~ /ETag: "([A-Za-z0-F0-f]{32})"/m);
-
 	ok($output !~ /^Status: 304 Not Modified/mi);
-	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
-	ok(length($body) != 0);
 
-	ok($output =~ /^Content-Length:\s+(\d+)/m);
+	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+
+	ok($headers =~ /^Content-Length:\s+(\d+)/m);
 	$length = $1;
+
+	ok(length($body) != 0);
 	ok(defined($length));
-	ok($length == length($body));
+	ok(length($body) == $length);
 }

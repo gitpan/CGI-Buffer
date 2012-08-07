@@ -1,5 +1,14 @@
 Revision history for CGI-Buffer
 
+0.58	Tue Aug  7 12:40:03 BST 2012
+	Improve the new-line handling between header fields
+	Replaces stats_file option with logger
+	Fix putting Content-Length in twice when cache is given
+	Optimise <hr> tags
+	Remove more redundant whitespace around hrefs
+	Test::Kwalitee isn't needed for build, only for optional testing
+	Only get the etag value from the cache when needed
+
 0.57	Tue Jul 24 13:51:43 BST 2012
 	Use get() rather than is_valid()
 	If get on the body fails, remove the corresponding headers from the

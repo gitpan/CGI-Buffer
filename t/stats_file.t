@@ -13,10 +13,13 @@ BEGIN {
 }
 
 SKIP: {
-	if(-r '/tmp/stats_file') {
-		# Race condition, yada yada
-		diag '/tmp/stats_file exists, not testing';
-		skip '/tmp/stats_file exists, not testing', 6;
+	# if(-r '/tmp/stats_file') {
+		# # Race condition, yada yada
+		# diag '/tmp/stats_file exists, not testing';
+		# skip '/tmp/stats_file exists, not testing', 6;
+	if(1) {
+		diag('Test script to be written');
+		skip 'Test script to be written', 6;
 	} else {
 		$ENV{'HTTP_ACCEPT_ENCODING'} = 'gzip';
 		$ENV{'SERVER_PROTOCOL'} = 'HTTP/1.1';

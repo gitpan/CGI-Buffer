@@ -11,6 +11,7 @@ t/boiler.t
 t/coverage.t
 t/critic.t
 t/cv.t
+t/dist.t
 t/gv.t
 t/is_cached.t
 t/js.t
@@ -19,10 +20,10 @@ t/last_mod.t
 t/manifest.t
 t/noplan.t
 t/output.t
-t/prereq.t
 t/pod-cm.t
 t/pod.t
 t/port.t
+t/prereq.t
 t/snippets.t
 t/spelling.t
 t/stats_file.t

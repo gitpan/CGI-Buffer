@@ -101,4 +101,8 @@ if(defined($r->header('Last-Modified'))) {
 	$rc++;
 }
 
+if($rc == 0) {
+	print "All tests passed OK\n";
+}
+
 exit $rc;

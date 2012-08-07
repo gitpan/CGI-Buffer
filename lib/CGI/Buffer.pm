@@ -19,11 +19,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.57
+Version 0.58
 
 =cut
 
-our $VERSION = '0.57';
+our $VERSION = '0.58';
 
 =head1 SYNOPSIS
 
@@ -73,12 +73,13 @@ our $cache;
 our $cache_age;
 our $cache_key;
 our $info;
+our $logger;
 
 BEGIN {
 	use Exporter();
-	use vars qw($VERSION $buf $pos $headers $header $header_name
-				$header_value $body @content_type $etag $send_body @o
-				$stats_file);
+	use vars qw($VERSION $buf $pos $headers $header
+				$body @content_type $etag
+				$send_body @o);
 
 	$CGI::Buffer::buf = IO::String->new;
 	$CGI::Buffer::old_buf = select($CGI::Buffer::buf);
@@ -103,7 +104,7 @@ END {
 
 	if($headers) {
 		foreach my $header (split(/\r?\n/, $headers)) {
-			($header_name, $header_value) = split /\:\s*/, $header, 2;
+			my ($header_name, $header_value) = split /\:\s*/, $header, 2;
 			if (lc($header_name) eq 'content-type') {
 				@content_type = split /\//, $header_value, 2;
 			}
@@ -112,9 +113,7 @@ END {
 
 	if(defined($body) && (length($body) == 0)) {
 		$body = undef;
-	}
-
-	if(defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
+	} elsif(defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
 		if($optimise_content) {
 			# require HTML::Clean;
 			require HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
@@ -146,7 +145,10 @@ END {
 			$body =~ s/\s+\<script/\<script/gi;
 			$body =~ s/\<td\>\s+/\<td\>/gi;
 			$body =~ s/\s+\<a\s+href="(.+?)"\>\s+/ <a href="$1">/gis;
+			$body =~ s/\s*<a\s+href=\s+"(.+?)"\>/ <a href="$1">/gis;
 			$body =~ s/\s\s/ /gs;
+			$body =~ s/\s+<hr>/<hr>/gis;
+			$body =~ s/<hr>\s+/<hr>/gis;
 
 			unless(defined($info)) {
 				$info = CGI::Info->new();
@@ -205,8 +207,12 @@ END {
 				@o = ('Content: text/plain');
 				$body = '';
 				foreach my $error ($lint->errors) {
-					warn $error->where() . ': ' . $error->errtext() . "\n";
-					$body .= $error->where() . ': ' . $error->errtext() . "\n";
+					my $errtext = $error->where() . ': ' . $error->errtext() . "\n";
+					if($logger) {
+						$logger->warn($errtext);
+					}
+					warn($errtext);
+					$body .= $errtext;
 				}
 			}
 		}
@@ -270,8 +276,7 @@ END {
 	if($cache) {
 		my $key = _generate_key();
 
-		# Maintain separate caches for gzipped and non gzipped so that
-		# browsers get what they ask for and can support
+		# Cache unzipped version
 		if(!defined($body)) {
 			$headers = $cache->get("CGI::Buffer/$key/headers");
 			@o = ("X-CGI-Buffer-$VERSION: Hit");
@@ -338,7 +343,11 @@ END {
 					push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
 				}
 			}
-			$etag = $cache->get("CGI::Buffer/$key/etag");
+			if(defined($headers) && ($headers =~ /^ETag: "([a-z0-9]{32})"/m)) {
+				$etag = $1;
+			} else {
+				$etag = $cache->get("CGI::Buffer/$key/etag");
+			}
 			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
 				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
 					push @o, "Status: 304 Not Modified";
@@ -364,12 +373,29 @@ END {
 				if(scalar(@o)) {
 					# Remember, we're storing the UNzipped
 					# version in the cache
-					my $c = "$headers\r\n" . join("\r\n", @o);
-					$c =~ s/^Content-Encoding: .+$//m;
-					$c =~ s/^Vary-Encoding: .+$//m;
-					$cache->set("CGI::Buffer/$key/headers", $c, $cache_age);
-				} elsif($headers) {
-					$cache->set("CGI::Buffer/$key/headers", $headers, $cache_age);
+					my $c;
+					if(defined($headers) && length($headers)) {
+						$c = $headers . "\r\n" . join("\r\n", @o);
+					} else {
+						$c = join("\r\n", @o);
+					}
+					$c =~ s/^Content-Encoding: .+$//mg;
+					$c =~ s/^Vary: Accept-Encoding.*\r?$//mg;
+					$c =~ s/\n+/\n/gs;
+					if(length($c)) {
+						$cache->set("CGI::Buffer/$key/headers", $c, $cache_age);
+					} else {
+						$cache->remove("CGI::Buffer/$key/headers");
+					}
+				} elsif(defined($headers) && length($headers)) {
+					$headers =~ s/^Content-Encoding: .+$//mg;
+					$headers =~ s/^Vary: Accept-Encoding.*\r?$//mg;
+					$headers =~ s/\n+/\n/gs;
+					if(length($headers)) {
+						$cache->set("CGI::Buffer/$key/headers", $headers, $cache_age);
+					} else {
+						$cache->remove("CGI::Buffer/$key/headers");
+					}
 				}
 				if($generate_etag && defined($etag)) {
 					$cache->set("CGI::Buffer/$key/etag", $etag);
@@ -380,6 +406,9 @@ END {
 			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
 		}
+		# We don't need it any more, so give Perl a chance to
+		# tidy it up seeing as we're in the destructor
+		$cache = undef;
 	}
 
 	my $body_length = defined($body) ? length($body) : 0;
@@ -387,33 +416,31 @@ END {
 	if(defined($headers) && length($headers)) {
 		# Put the original headers first, then those generated within
 		# CGI::Buffer
-		unshift @o, $headers;
+		unshift @o, split(/\r\n/, $headers);
 		if($body && $send_body) {
-			push @o, "Content-Length: $body_length";
+			my $already_done = 0;
+			foreach(@o) {
+				if(/^Content-Length: /) {
+					$already_done = 1;
+					last;
+				}
+			}
+			unless($already_done) {
+				push @o, "Content-Length: $body_length";
+			}
 		}
 	} else {
 		push @o, "X-CGI-Buffer-$VERSION: No headers";
 	}
 
-	if($stats_file) {
-		open(my $fout, '>>', $stats_file);
-
-		print $fout ctime() . "\n";
-		if($fout) {
-			while (my ($key,$value) = each %ENV) {
-				print $fout "\t$key=$value\n";
-			}
-			print $fout "\tsend_body = $send_body\n";
-			print $fout "\tstatus = $status\n";
-			if(scalar @o) {
-				print $fout "\t";
-			}
-			print $fout join("\n\t", @o);
-			print $fout "\n";
-
-			close $fout;
-		} else {
-			Carp::carp "Can't open stats_file $stats_file for appending";
+	if($logger) {
+		while (my ($key,$value) = each %ENV) {
+			$logger->debug("$key=$value");
+		}
+		$logger->debug("send_body = $send_body\n");
+		$logger->debug("status = $status\n");
+		foreach my $line(@o) {
+			$logger->debug($line);
 		}
 	}
 
@@ -461,7 +488,7 @@ Set various options and override default values.
 	optimise_content => 0,	# optimise your program's HTML, CSS and JavaScript
 	cache => CHI->new(driver => 'File'),	# cache requests
 	cache_key => 'string',		# key for the cache
-	stats_file => '/tmp/stats',	# File to keep statistics of CGI::Buffer
+	logger => $logger,
 	lint->content => 0,	# Pass through HTML::Lint
     );
 
@@ -469,8 +496,11 @@ If no cache_key is given, one will be generated which may not be unique.
 The cache_key should be a unique value dependent upon the values set by the
 browser.
 
-The cache object will be an instantiation of a class that understands get,
-set, remove and created_at, such as L<CHI>.
+The cache object will be an object that understands get(),
+set(), remove() and created_at() messages, such as an L<CHI> object.
+
+Logger will be an object that understands debug() such as an L<Log::Log4perl>
+object.
 
 To generate a last_modified header, you must give a cache object.
 
@@ -507,16 +537,8 @@ sub init {
 	if(defined($params{lint_content})) {
 		$lint_content = $params{lint_content};
 	}
-	if(defined($params{stats_file})) {
-		my $filename = $params{stats_file};
-
-		unless(File::Spec->file_name_is_absolute($filename)) {
-			Carp::carp "stats_file $filename isn't absolute";
-		}
-		if(-d $filename) {
-			Carp::carp "stats_file $filename is a directory";
-		}
-		$stats_file = $filename;
+	if(defined($params{logger})) {
+		$logger = $params{logger};
 	}
 
 	# Unsafe options - must be called before output has been started
@@ -616,8 +638,7 @@ sub is_cached {
 	#	fail
 	# Don't use get_valid, since I've found records where get_valid
 	#	succeeds, then the subsequent get fails
-	return defined($cache->get("CGI::Buffer/$key/body")) &&
-	       defined($cache->get("CGI::Buffer/$key/headers"));
+	return defined($cache->get("CGI::Buffer/$key/body"));
 }
 
 sub _should_gzip {

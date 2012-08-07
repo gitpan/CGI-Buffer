@@ -57,22 +57,23 @@ TEST: {
 
 			close $tmp;
 
-			ok($output =~ /^Content-Length:\s+(\d+)/m);
-			my $length = $1;
-			ok(defined($length));
-
-			ok($output =~ /<HTML><BODY>   Hello World<\/BODY><\/HTML>/m);
 			ok($output !~ /^Content-Encoding: gzip/m);
 			ok($output !~ /^ETag: "/m);
 
-			ok(CGI::Buffer::is_cached() == 0);
-
 			my ($headers, $body) = split /\r?\n\r?\n/, $output, 2;
-			ok(length($body) eq $length);
 
-			ok($output =~ /^Last-Modified:\s+(.+)/m);
+			ok($headers =~ /^Last-Modified:\s+(.+)/m);
 			my $date = $1;
 			ok(defined($date));
+
+			ok($headers =~ /^Content-Length:\s+(\d+)/m);
+			my $length = $1;
+			ok(defined($length));
+
+			ok($body =~ /^<HTML><BODY>   Hello World<\/BODY><\/HTML>/m);
+			ok(CGI::Buffer::is_cached() == 0);
+
+			ok(length($body) eq $length);
 
 			eval {
 				require DateTime::Format::HTTP;

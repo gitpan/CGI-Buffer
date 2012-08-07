@@ -4,7 +4,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 3;
+use Test::More tests => 5;
 # use Test::NoWarnings;	# HTML::Clean has them
 
 BEGIN {
@@ -28,11 +28,15 @@ CACHED: {
 
 		diag("Using CHI $CHI::VERSION");
 
-		my $hash = {};
-		my $cache = CHI->new(driver => 'Memory', datastore => $hash);
+		my $cache = CHI->new(driver => 'Memory', datastore => {});
 
 		CGI::Buffer::set_options(cache => $cache, cache_key => 'xyzzy');
-
 		ok(!CGI::Buffer::is_cached());
+
+		$cache->set('CGI::Buffer/xyzzy/body', 'foo');
+		ok(CGI::Buffer::is_cached());
+
+		$cache->set('CGI::Buffer/xyzzy/headers', 'bar');
+		ok(CGI::Buffer::is_cached());
 	}
 }
