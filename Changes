@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.59	Wed Aug  8 10:00:00 BST 2012
+	t/is_cached: fix tests on systems without CHI
+
 0.58	Tue Aug  7 12:40:03 BST 2012
 	Improve the new-line handling between header fields
 	Replaces stats_file option with logger

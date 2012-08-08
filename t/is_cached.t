@@ -24,7 +24,7 @@ CACHED: {
 			CHI->import;
 		};
 
-		skip 'CHI not installed', 1 if $@;
+		skip 'CHI not installed', 3 if $@;
 
 		diag("Using CHI $CHI::VERSION");
 
