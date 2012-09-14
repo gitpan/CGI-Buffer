@@ -33,10 +33,10 @@ CACHED: {
 		CGI::Buffer::set_options(cache => $cache, cache_key => 'xyzzy');
 		ok(!CGI::Buffer::is_cached());
 
-		$cache->set('CGI::Buffer/xyzzy/body', 'foo');
+		$cache->set('xyzzy/body', 'foo');
 		ok(CGI::Buffer::is_cached());
 
-		$cache->set('CGI::Buffer/xyzzy/headers', 'bar');
+		$cache->set('xyzzy/headers', 'bar');
 		ok(CGI::Buffer::is_cached());
 	}
 }

@@ -1,5 +1,19 @@
 Revision history for CGI-Buffer
 
+0.60	Fri Sep 14 08:44:00 BST 2012
+	Removed superflouous whitespace around the top of the document and
+		in lists
+	Added t/unused.t
+	Remove spaces after <div>
+	Remove spaces before </div>
+	Simplified the cache key
+	If the script has been modified since the value in IF_MODIFIED_SINCE
+		don't return 304, since the output may have been changed
+	If the script has been modified since the time it was stored in the cache
+		don't return true from is_cached()
+	Use the cookies to ensure that different states of the client are stored
+		in different entries in the cache
+
 0.59	Wed Aug  8 10:00:00 BST 2012
 	t/is_cached: fix tests on systems without CHI
 

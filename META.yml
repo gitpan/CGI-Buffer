@@ -34,4 +34,4 @@ requires:
   JavaScript::Packer: 1.006003
   Test::More: 0.82
   Time::localtime: 0
-version: 0.59
+version: 0.60

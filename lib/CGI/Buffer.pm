@@ -19,11 +19,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.59
+Version 0.60
 
 =cut
 
-our $VERSION = '0.59';
+our $VERSION = '0.60';
 
 =head1 SYNOPSIS
 
@@ -74,6 +74,8 @@ our $cache_age;
 our $cache_key;
 our $info;
 our $logger;
+our $status;
+our $script_mtime;
 
 BEGIN {
 	use Exporter();
@@ -124,8 +126,12 @@ END {
 			$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gis;
 			$body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gis;
 			$body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gis;
+			$body =~ s/\<div\>\s+/\<div\>/gis;	# Remove spaces after <div>
+			$body =~ s/\s+<\/div\>/\<\/div\>/gis;	# Remove spaces before </div>
 			$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
 			$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
+			$body =~ s/<html>\s+<head>/<html><head>/gis;
+			$body =~ s/<head>\s+<body>/<head><body>/gis;
 			$body =~ s/\s+\<\/html/\<\/html/is;
 			$body =~ s/\s+\<\/body/\<\/body/is;
 			$body =~ s/\n\s+|\s+\n/\n/g;
@@ -149,7 +155,14 @@ END {
 			$body =~ s/\s\s/ /gs;
 			$body =~ s/\s+<hr>/<hr>/gis;
 			$body =~ s/<hr>\s+/<hr>/gis;
+			$body =~ s/<\/li>\s+<li>/<\/li><li>/gis;
+			$body =~ s/<\/li>\s+<\/ul>/<\/li><\/ul>/gis;
+			$body =~ s/<ul>\s+<li>/<ul><li>/gis;
 
+			# If we're on http://www.example.com and have a link
+			# to http://www.example.com/foo/bar.htm, change the
+			# link to /foo.bar.htm - there's no need to include
+			# the site name in the link
 			unless(defined($info)) {
 				$info = CGI::Info->new();
 			}
@@ -163,6 +176,10 @@ END {
 
 			$body =~ s/<a\s+?href="$protocol:\/\/$href"/<a href="\/"/gim;
 			$body =~ s/<a\s+?href="$protocol:\/\/$href/<a href="/gim;
+
+			# TODO use URI->path_segments to change links in
+			# /aa/bb/cc/dd.htm which point to /aa/bb/ff.htm to
+			# ../ff.htm
 
 			# TODO: <img border=0 src=...>
 			$body =~ s/<img\s+?src="$protocol:\/\/$href"/<img src="\/"/gim;
@@ -218,7 +235,7 @@ END {
 		}
 	}
 
-	my $status = 200;
+	$status = 200;
 
 	if(defined($headers) && ($headers =~ /^Status: (\d+)/m)) {
 		$status = $1;
@@ -278,15 +295,15 @@ END {
 
 		# Cache unzipped version
 		if(!defined($body)) {
-			$headers = $cache->get("CGI::Buffer/$key/headers");
+			$headers = $cache->get("$key/headers");
 			@o = ("X-CGI-Buffer-$VERSION: Hit");
 
 			# Nothing has been output yet, so we can check if it's
 			# OK to send 304 if possible
 			if($send_body) {
-				$body = $cache->get("CGI::Buffer/$key/body");
+				$body = $cache->get("$key/body");
 				if(!defined($body)) {
-					$cache->remove("CGI::Buffer/$key/headers");
+					$cache->remove("$key/headers");
 					carp "Can't retrieve body for key $key";
 				}
 				if($ENV{'SERVER_PROTOCOL'} &&
@@ -294,14 +311,10 @@ END {
 				  ($status == 200)) {
 					if(defined($body)) {
 						if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
-							my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
-							my $a = $cache->get_object("CGI::Buffer/$key/body")->created_at();
-
-							if($r >= $a) {
-								push @o, "Status: 304 Not Modified";
-								$status = 304;
-								$send_body = 0;
-							}
+							_check_modified_since({
+								since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
+								modified => $cache->get_object("$key/body")->created_at()
+							});
 						}
 						if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
 							if(!defined($etag)) {
@@ -330,15 +343,13 @@ END {
 					}
 				}
 			}
-			my $cobject = $cache->get_object("CGI::Buffer/$key/body");
+			my $cobject = $cache->get_object("$key/body");
 			if($cobject) {
 				if($ENV{'HTTP_IF_MODIFIED_SINCE'} && ($status != 304)) {
-					my $r = HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'});
-					if($r >= $cobject->created_at()) {
-						push @o, "Status: 304 Not Modified";
-						$status = 304;
-						$send_body = 0;
-					}
+					_check__modified_since({
+						since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
+						modified => $cobject->created_at()
+					});
 				} elsif($generate_last_modified) {
 					push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
 				}
@@ -346,7 +357,7 @@ END {
 			if(defined($headers) && ($headers =~ /^ETag: "([a-z0-9]{32})"/m)) {
 				$etag = $1;
 			} else {
-				$etag = $cache->get("CGI::Buffer/$key/etag");
+				$etag = $cache->get("$key/etag");
 			}
 			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
 				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
@@ -365,7 +376,7 @@ END {
 					# recently used.
 					$cache_age = '10 minutes';
 				}
-				$cache->set("CGI::Buffer/$key/body", $unzipped_body, $cache_age);
+				$cache->set("$key/body", $unzipped_body, $cache_age);
 				if($body && $send_body) {
 					my $body_length = length($body);
 					push @o, "Content-Length: $body_length";
@@ -383,22 +394,22 @@ END {
 					$c =~ s/^Vary: Accept-Encoding.*\r?$//mg;
 					$c =~ s/\n+/\n/gs;
 					if(length($c)) {
-						$cache->set("CGI::Buffer/$key/headers", $c, $cache_age);
+						$cache->set("$key/headers", $c, $cache_age);
 					} else {
-						$cache->remove("CGI::Buffer/$key/headers");
+						$cache->remove("$key/headers");
 					}
 				} elsif(defined($headers) && length($headers)) {
 					$headers =~ s/^Content-Encoding: .+$//mg;
 					$headers =~ s/^Vary: Accept-Encoding.*\r?$//mg;
 					$headers =~ s/\n+/\n/gs;
 					if(length($headers)) {
-						$cache->set("CGI::Buffer/$key/headers", $headers, $cache_age);
+						$cache->set("$key/headers", $headers, $cache_age);
 					} else {
-						$cache->remove("CGI::Buffer/$key/headers");
+						$cache->remove("$key/headers");
 					}
 				}
 				if($generate_etag && defined($etag)) {
-					$cache->set("CGI::Buffer/$key/etag", $etag);
+					$cache->set("$key/etag", $etag);
 				}
 			}
 			if($generate_last_modified) {
@@ -458,6 +469,23 @@ END {
 	}
 }
 
+sub _check_modified_since {
+	my $params = shift;
+
+	my $s = $$params{since};
+
+	if(_my_age() > $s) {
+		# Script has been updated so it may produce different output
+		return;
+	}
+
+	if($$params{modified} < $s) {
+		push @o, "Status: 304 Not Modified";
+		$status = 304;
+		$send_body = 0;
+	}
+}
+
 # Create a key for the cache
 sub _generate_key {
 	if($cache_key) {
@@ -469,6 +497,10 @@ sub _generate_key {
 
 	# TODO: Use CGI::Lingua so that different languages are stored in
 	#	different caches
+	if($ENV{'HTTP_COOKIE'}) {
+		# Different states of the client are stored in different caches
+		return $info->domain_name() . '/' . $info->script_name() . '/' . $info->as_string() . "/$ENV{HTTP_COOKIE}";
+	}
 	return $info->domain_name() . '/' . $info->script_name() . '/' . $info->as_string();
 }
 
@@ -636,9 +668,31 @@ sub is_cached {
 	# FIXME: It is remotely possible that this will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
-	# Don't use get_valid, since I've found records where get_valid
-	#	succeeds, then the subsequent get fails
-	return defined($cache->get("CGI::Buffer/$key/body"));
+	my $object = $cache->get_object("$key/body");
+	unless($object) {
+		return 0;
+	}
+
+	# If the script has changed, don't use the cache since we may produce
+	# different output
+	if(_my_age() > $object->created_at()) {
+		# Script has been updated so it may produce different output
+		return 0;
+	}
+	return 1;
+}
+
+sub _my_age {
+	if($script_mtime) {
+		return $script_mtime;
+	}
+	unless(defined($info)) {
+		$info = CGI::Info->new();
+	}
+
+	my @statb = stat($info->script_path());
+	$script_mtime = $statb[9];
+	return $script_mtime;
 }
 
 sub _should_gzip {
