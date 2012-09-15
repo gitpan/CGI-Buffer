@@ -19,11 +19,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.60
+Version 0.61
 
 =cut
 
-our $VERSION = '0.60';
+our $VERSION = '0.61';
 
 =head1 SYNOPSIS
 
@@ -346,7 +346,7 @@ END {
 			my $cobject = $cache->get_object("$key/body");
 			if($cobject) {
 				if($ENV{'HTTP_IF_MODIFIED_SINCE'} && ($status != 304)) {
-					_check__modified_since({
+					_check_modified_since({
 						since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
 						modified => $cobject->created_at()
 					});
