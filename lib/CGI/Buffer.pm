@@ -19,11 +19,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.61
+Version 0.62
 
 =cut
 
-our $VERSION = '0.61';
+our $VERSION = '0.62';
 
 =head1 SYNOPSIS
 
@@ -225,9 +225,6 @@ END {
 				$body = '';
 				foreach my $error ($lint->errors) {
 					my $errtext = $error->where() . ': ' . $error->errtext() . "\n";
-					if($logger) {
-						$logger->warn($errtext);
-					}
 					warn($errtext);
 					$body .= $errtext;
 				}
@@ -444,17 +441,6 @@ END {
 		push @o, "X-CGI-Buffer-$VERSION: No headers";
 	}
 
-	if($logger) {
-		while (my ($key,$value) = each %ENV) {
-			$logger->debug("$key=$value");
-		}
-		$logger->debug("send_body = $send_body\n");
-		$logger->debug("status = $status\n");
-		foreach my $line(@o) {
-			$logger->debug($line);
-		}
-	}
-
 	if($body_length && $send_body) {
 		push @o, '';
 		push @o, $body;
@@ -474,7 +460,11 @@ sub _check_modified_since {
 
 	my $s = $$params{since};
 
-	if(_my_age() > $s) {
+	my $age = _my_age();
+	unless(defined($age)) {
+		return;
+	}
+	if($age > $s) {
 		# Script has been updated so it may produce different output
 		return;
 	}
@@ -663,21 +653,50 @@ sub is_cached {
 	unless($cache) {
 		return 0;
 	}
+
 	my $key = _generate_key();
 
+	if($logger) {
+		$logger->debug("is_cached: key = $key");
+	}
 	# FIXME: It is remotely possible that this will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
-	my $object = $cache->get_object("$key/body");
+	my $object = $cache->get_object("$key/headers");
 	unless($object) {
+		if($logger) {
+			$logger->debug('is_cached: no headers cache');
+		}
+		return 0;
+	}
+	unless($cache->get_object("$key/body")) {
+		if($logger) {
+			$logger->debug('is_cached: no body cache, remove headers');
+		}
+		$cache->remove("$key/headers");
 		return 0;
 	}
 
 	# If the script has changed, don't use the cache since we may produce
 	# different output
-	if(_my_age() > $object->created_at()) {
-		# Script has been updated so it may produce different output
+	my $age = _my_age();
+	unless(defined($age)) {
+		if($logger) {
+			$logger->debug("Can't determine script's age");
+		}
+		# Can't determine the age. Play it safe an assume we're not
+		# cached
 		return 0;
+	}
+	if($age > $object->created_at()) {
+		# Script has been updated so it may produce different output
+		if($logger) {
+			$logger->debug('Script has been updated');
+		}
+		return 0;
+	}
+	if($logger) {
+		$logger->debug('Script is in the cache');
 	}
 	return 1;
 }
@@ -690,7 +709,12 @@ sub _my_age {
 		$info = CGI::Info->new();
 	}
 
-	my @statb = stat($info->script_path());
+	my $path = $info->script_path();
+	unless(defined($path)) {
+		return;
+	}
+
+	my @statb = stat($path);
 	$script_mtime = $statb[9];
 	return $script_mtime;
 }

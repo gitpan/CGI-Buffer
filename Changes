@@ -1,5 +1,11 @@
 Revision history for CGI-Buffer
 
+0.62	Wed Sep 19 10:09:53 BST 2012
+	Added resilience to is_cached in case the age of the script can't be
+		determined.
+	Removed logger calls from END, since it'll have gone by then
+	is_cached now returns false unless both body and headers can be found
+
 0.61	Sat Sep 15 17:57:03 BST 2012
 	Fixed typo in subroutine name
 

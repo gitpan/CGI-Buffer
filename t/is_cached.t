@@ -4,7 +4,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 5;
+use Test::More tests => 6;
 # use Test::NoWarnings;	# HTML::Clean has them
 
 BEGIN {
@@ -33,10 +33,14 @@ CACHED: {
 		CGI::Buffer::set_options(cache => $cache, cache_key => 'xyzzy');
 		ok(!CGI::Buffer::is_cached());
 
-		$cache->set('xyzzy/body', 'foo');
-		ok(CGI::Buffer::is_cached());
+		$cache->set('xyzzy/headers', 'foo');
+		ok(!CGI::Buffer::is_cached());
 
 		$cache->set('xyzzy/headers', 'bar');
+		ok(!CGI::Buffer::is_cached());
+
+		$cache->set('xyzzy/headers', 'fred');
+		$cache->set('xyzzy/body', 'wilma');
 		ok(CGI::Buffer::is_cached());
 	}
 }
