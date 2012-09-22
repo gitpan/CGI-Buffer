@@ -1,5 +1,12 @@
 Revision history for CGI-Buffer
 
+0.63	Sat Sep 22 18:45:27 EDT 2012
+	Fixed t/is_cached.t for systems without CHI
+	Sometimes 304 was not generated for when giving IF_MODIFIED_SINCE in
+		scenarios were it could have been
+	Amalgameted that 3 separate caches into one cache.
+	Minor speed improvements
+
 0.62	Wed Sep 19 10:09:53 BST 2012
 	Added resilience to is_cached in case the age of the script can't be
 		determined.

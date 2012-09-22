@@ -4,7 +4,8 @@
 
 use strict;
 use warnings;
-use Test::More tests => 6;
+use Test::More tests => 4;
+use Storable;
 # use Test::NoWarnings;	# HTML::Clean has them
 
 BEGIN {
@@ -24,7 +25,7 @@ CACHED: {
 			CHI->import;
 		};
 
-		skip 'CHI not installed', 3 if $@;
+		skip 'CHI not installed', 4 if $@;
 
 		diag("Using CHI $CHI::VERSION");
 
@@ -33,14 +34,13 @@ CACHED: {
 		CGI::Buffer::set_options(cache => $cache, cache_key => 'xyzzy');
 		ok(!CGI::Buffer::is_cached());
 
-		$cache->set('xyzzy/headers', 'foo');
-		ok(!CGI::Buffer::is_cached());
+		my $c;
 
-		$cache->set('xyzzy/headers', 'bar');
-		ok(!CGI::Buffer::is_cached());
+		$c->{'body'} = '';
+		$c->{'etag'} = '';
+		$c->{'headers'} = '';
 
-		$cache->set('xyzzy/headers', 'fred');
-		$cache->set('xyzzy/body', 'wilma');
+		$cache->set('xyzzy', Storable::freeze($c));
 		ok(CGI::Buffer::is_cached());
 	}
 }

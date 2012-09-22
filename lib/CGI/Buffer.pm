@@ -11,6 +11,7 @@ use Encode;
 use DateTime;
 use HTTP::Date;
 use File::Spec;
+use Storable;
 use Time::localtime;	# For ctime
 
 =head1 NAME
@@ -19,11 +20,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.62
+Version 0.63
 
 =cut
 
-our $VERSION = '0.62';
+our $VERSION = '0.63';
 
 =head1 SYNOPSIS
 
@@ -41,8 +42,8 @@ package, and it does the rest.
     # ...
 
 To also make use of server caches, that is to say to save regenerating output
-when different clients ask you for the same data,
-you will need to create a cache.
+when different clients ask you for the same data, you will need to create a
+cache.
 But that's simple:
 
     use CGI::Buffer;
@@ -53,6 +54,7 @@ But that's simple:
 	cache => CHI->new(driver => 'File')
     );
     if(CGI::Buffer::is_cached()) {
+	# Nothing has changed - use the version in the cache
 	exit;
     }
 
@@ -109,6 +111,7 @@ END {
 			my ($header_name, $header_value) = split /\:\s*/, $header, 2;
 			if (lc($header_name) eq 'content-type') {
 				@content_type = split /\//, $header_value, 2;
+				last;
 			}
 		}
 	}
@@ -191,8 +194,8 @@ END {
 			# $h->strip();
 			# my $ref = $h->data();
 
-			# Don't always do javascript 'best' since it's confused by
-			# the common <!-- HIDE technique.
+			# Don't always do javascript 'best' since it's confused
+			# by the common <!-- HIDE technique.
 			# See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
 			my $options = {
 				remove_comments => 1,
@@ -288,59 +291,63 @@ END {
 	}
 
 	if($cache) {
+		my $cache_hash;
+		my $cobject;
 		my $key = _generate_key();
 
 		# Cache unzipped version
 		if(!defined($body)) {
-			$headers = $cache->get("$key/headers");
+			$cobject = $cache->get_object($key);
+			unless(defined($cobject)) {
+				carp "Error retrieving data for key $key";
+			}
+			$cache_hash = Storable::thaw($cache->get($key));
+			$headers = $cache_hash->{'headers'};
 			@o = ("X-CGI-Buffer-$VERSION: Hit");
 
 			# Nothing has been output yet, so we can check if it's
 			# OK to send 304 if possible
 			if($send_body) {
-				$body = $cache->get("$key/body");
+				$body = $cache_hash->{'body'};
 				if(!defined($body)) {
-					$cache->remove("$key/headers");
+					$cache->remove($key);
 					carp "Can't retrieve body for key $key";
 				}
 				if($ENV{'SERVER_PROTOCOL'} &&
 				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
 				  ($status == 200)) {
-					if(defined($body)) {
-						if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
-							_check_modified_since({
-								since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
-								modified => $cache->get_object("$key/body")->created_at()
-							});
+					if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
+						_check_modified_since({
+							since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
+							modified => $cobject->created_at()
+						});
+					}
+					if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
+						if(!defined($etag)) {
+							$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 						}
-						if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
-							if(!defined($etag)) {
-								$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
-							}
-							if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
-								push @o, "Status: 304 Not Modified";
-								$status = 304;
-								$send_body = 0;
-							}
+						if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
+							push @o, "Status: 304 Not Modified";
+							$status = 304;
+							$send_body = 0;
 						}
-						if($send_body && (length($encoding) > 0) && defined($body)) {
-							if(length($body) >= MIN_GZIP_LEN) {
-								require Compress::Zlib;
-								Compress::Zlib->import;
+					}
+					if($send_body && (length($encoding) > 0)) {
+						if(length($body) >= MIN_GZIP_LEN) {
+							require Compress::Zlib;
+							Compress::Zlib->import;
 
-								# Avoid 'Wide character in memGzip'
-								my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
-								if(length($nbody) < length($body)) {
-									$body = $nbody;
-									push @o, "Content-Encoding: $encoding";
-									push @o, "Vary: Accept-Encoding";
-								}
+							# Avoid 'Wide character in memGzip'
+							my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
+							if(length($nbody) < length($body)) {
+								$body = $nbody;
+								push @o, "Content-Encoding: $encoding";
+								push @o, "Vary: Accept-Encoding";
 							}
 						}
 					}
 				}
 			}
-			my $cobject = $cache->get_object("$key/body");
 			if($cobject) {
 				if($ENV{'HTTP_IF_MODIFIED_SINCE'} && ($status != 304)) {
 					_check_modified_since({
@@ -354,7 +361,7 @@ END {
 			if(defined($headers) && ($headers =~ /^ETag: "([a-z0-9]{32})"/m)) {
 				$etag = $1;
 			} else {
-				$etag = $cache->get("$key/etag");
+				$etag = $cache_hash->{'etag'};
 			}
 			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
 				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
@@ -373,7 +380,7 @@ END {
 					# recently used.
 					$cache_age = '10 minutes';
 				}
-				$cache->set("$key/body", $unzipped_body, $cache_age);
+				$cache_hash->{'body'} = $unzipped_body;
 				if($body && $send_body) {
 					my $body_length = length($body);
 					push @o, "Content-Length: $body_length";
@@ -391,28 +398,26 @@ END {
 					$c =~ s/^Vary: Accept-Encoding.*\r?$//mg;
 					$c =~ s/\n+/\n/gs;
 					if(length($c)) {
-						$cache->set("$key/headers", $c, $cache_age);
-					} else {
-						$cache->remove("$key/headers");
+						$cache_hash->{'headers'} = $c;
 					}
 				} elsif(defined($headers) && length($headers)) {
 					$headers =~ s/^Content-Encoding: .+$//mg;
 					$headers =~ s/^Vary: Accept-Encoding.*\r?$//mg;
 					$headers =~ s/\n+/\n/gs;
 					if(length($headers)) {
-						$cache->set("$key/headers", $headers, $cache_age);
-					} else {
-						$cache->remove("$key/headers");
+						$cache_hash->{'headers'} = $headers;
 					}
 				}
 				if($generate_etag && defined($etag)) {
-					$cache->set("$key/etag", $etag);
+					$cache_hash->{'etag'} = $etag
 				}
 			}
-			if($generate_last_modified) {
-				push @o, "Last-Modified: " . HTTP::Date::time2str();
-			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
+			$cache->set($key, Storable::freeze($cache_hash), $cache_age);
+			if($generate_last_modified) {
+				$cobject = $cache->get_object($key);
+				push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
+			}
 		}
 		# We don't need it any more, so give Perl a chance to
 		# tidy it up seeing as we're in the destructor
@@ -469,7 +474,7 @@ sub _check_modified_since {
 		return;
 	}
 
-	if($$params{modified} < $s) {
+	if($$params{modified} <= $s) {
 		push @o, "Status: 304 Not Modified";
 		$status = 304;
 		$send_body = 0;
@@ -662,18 +667,11 @@ sub is_cached {
 	# FIXME: It is remotely possible that this will succeed, and the
 	#	cache expires before the above get, causing the get to possibly
 	#	fail
-	my $object = $cache->get_object("$key/headers");
+	my $object = $cache->get_object($key);
 	unless($object) {
 		if($logger) {
-			$logger->debug('is_cached: no headers cache');
+			$logger->debug('is_cached: not found in cache');
 		}
-		return 0;
-	}
-	unless($cache->get_object("$key/body")) {
-		if($logger) {
-			$logger->debug('is_cached: no body cache, remove headers');
-		}
-		$cache->remove("$key/headers");
 		return 0;
 	}
 
@@ -744,8 +742,8 @@ Nigel Horne, C<< <njh at bandsman.co.uk> >>
 
 =head1 BUGS
 
-When using L<Template>, ensure that you don't use it to output to STDOUT, instead you
-will need to capture into a variable and print that.
+When using L<Template>, ensure that you don't use it to output to STDOUT,
+instead you will need to capture into a variable and print that.
 For example:
 
     my $output;
@@ -760,6 +758,11 @@ Mod_deflate can confuse this when compressing output. Ensure that deflation is
 off for .pl files:
 
     SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|pl)$ no-gzip dont-vary
+
+If you request compressed output then uncompressed output (or vice versa)
+on input that produces the same output, the status will be 304. The letter of
+the spec says that's wrong, so I'm noting it here, but in practice you should
+not see this happen or have any difficulties because of it.
 
 Please report any bugs or feature requests to C<bug-cgi-buffer at rt.cpan.org>,
 or through the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=CGI-Buffer>.

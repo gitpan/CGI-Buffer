@@ -32,6 +32,7 @@ requires:
   IO::CaptureOutput: 0
   IO::String: 0
   JavaScript::Packer: 1.006003
+  Storable: 0
   Test::More: 0.82
   Time::localtime: 0
-version: 0.62
+version: 0.63
