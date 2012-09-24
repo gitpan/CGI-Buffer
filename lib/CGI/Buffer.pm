@@ -20,11 +20,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.63
+Version 0.64
 
 =cut
 
-our $VERSION = '0.63';
+our $VERSION = '0.64';
 
 =head1 SYNOPSIS
 
@@ -411,9 +411,9 @@ END {
 				if($generate_etag && defined($etag)) {
 					$cache_hash->{'etag'} = $etag
 				}
+				$cache->set($key, Storable::freeze($cache_hash), $cache_age);
 			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
-			$cache->set($key, Storable::freeze($cache_hash), $cache_age);
 			if($generate_last_modified) {
 				$cobject = $cache->get_object($key);
 				push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());

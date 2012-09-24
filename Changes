@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.64	Mon Sep 24 17:08:15 EDT 2012
+	Only store in the cache when status is 200
+
 0.63	Sat Sep 22 18:45:27 EDT 2012
 	Fixed t/is_cached.t for systems without CHI
 	Sometimes 304 was not generated for when giving IF_MODIFIED_SINCE in
