@@ -20,11 +20,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.64
+Version 0.65
 
 =cut
 
-our $VERSION = '0.64';
+our $VERSION = '0.65';
 
 =head1 SYNOPSIS
 
@@ -224,7 +224,7 @@ END {
 
 			if($lint->errors) {
 				$headers = 'Status: 500 Internal Server Error';
-				@o = ('Content: text/plain');
+				@o = ('Content-type: text/plain');
 				$body = '';
 				foreach my $error ($lint->errors) {
 					my $errtext = $error->where() . ': ' . $error->errtext() . "\n";
@@ -244,17 +244,17 @@ END {
 	# Generate the eTag before compressing, since the compressed data
 	# includes the mtime field which changes thus causing a different
 	# Etag to be generated
-	if($ENV{'SERVER_PROTOCOL'} && ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') && defined($body)) {
-		if($generate_etag) {
-			# encode to avoid "Wide character in subroutine entry"
-			$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
-			push @o, "ETag: $etag";
-			if ($ENV{'HTTP_IF_NONE_MATCH'}) {
-				if(($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
-					push @o, "Status: 304 Not Modified";
-					$send_body = 0;
-					$status = 304;
-				}
+	if($ENV{'SERVER_PROTOCOL'} &&
+	  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
+	  $generate_etag && defined($body)) {
+		# encode to avoid "Wide character in subroutine entry"
+		$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+		push @o, "ETag: $etag";
+		if ($ENV{'HTTP_IF_NONE_MATCH'}) {
+			if(($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
+				push @o, "Status: 304 Not Modified";
+				$send_body = 0;
+				$status = 304;
 			}
 		}
 	}
@@ -298,52 +298,62 @@ END {
 		# Cache unzipped version
 		if(!defined($body)) {
 			$cobject = $cache->get_object($key);
-			unless(defined($cobject)) {
+			if(defined($cobject)) {
+				$cache_hash = Storable::thaw($cobject->value());
+				$headers = $cache_hash->{'headers'};
+				@o = ("X-CGI-Buffer-$VERSION: Hit");
+			} else {
 				carp "Error retrieving data for key $key";
 			}
-			$cache_hash = Storable::thaw($cache->get($key));
-			$headers = $cache_hash->{'headers'};
-			@o = ("X-CGI-Buffer-$VERSION: Hit");
 
 			# Nothing has been output yet, so we can check if it's
 			# OK to send 304 if possible
-			if($send_body) {
-				$body = $cache_hash->{'body'};
-				if(!defined($body)) {
-					$cache->remove($key);
-					carp "Can't retrieve body for key $key";
+			if($send_body && $ENV{'SERVER_PROTOCOL'} &&
+			  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
+			  ($status == 200)) {
+				if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
+					_check_modified_since({
+						since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
+						modified => $cobject->created_at()
+					});
 				}
-				if($ENV{'SERVER_PROTOCOL'} &&
-				  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
-				  ($status == 200)) {
-					if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
-						_check_modified_since({
-							since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
-							modified => $cobject->created_at()
-						});
-					}
-					if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
-						if(!defined($etag)) {
-							$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+				if($status == 200) {
+					$body = $cache_hash->{'body'};
+					if(!defined($body)) {
+						# Panic
+						$headers = 'Status: 500 Internal Server Error';
+						@o = ('Content-type: text/plain');
+						$body = "Can't retrieve body for key $key, cache_hash contains:\n";
+						foreach my $k (keys %{$cache_hash}) {
+							$body .= "\t$k\n";
 						}
-						if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
-							push @o, "Status: 304 Not Modified";
-							$status = 304;
-							$send_body = 0;
-						}
+						warn($body);
+						$cache->remove($key);
+						carp "Can't retrieve body for key $key";
+						$send_body = 0;
 					}
-					if($send_body && (length($encoding) > 0)) {
-						if(length($body) >= MIN_GZIP_LEN) {
-							require Compress::Zlib;
-							Compress::Zlib->import;
+				}
+				if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
+					if(!defined($etag)) {
+						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
+					}
+					if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
+						push @o, "Status: 304 Not Modified";
+						$status = 304;
+						$send_body = 0;
+					}
+				}
+				if($send_body && (length($encoding) > 0)) {
+					if(length($body) >= MIN_GZIP_LEN) {
+						require Compress::Zlib;
+						Compress::Zlib->import;
 
-							# Avoid 'Wide character in memGzip'
-							my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
-							if(length($nbody) < length($body)) {
-								$body = $nbody;
-								push @o, "Content-Encoding: $encoding";
-								push @o, "Vary: Accept-Encoding";
-							}
+						# Avoid 'Wide character in memGzip'
+						my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
+						if(length($nbody) < length($body)) {
+							$body = $nbody;
+							push @o, "Content-Encoding: $encoding";
+							push @o, "Vary: Accept-Encoding";
 						}
 					}
 				}
@@ -671,6 +681,12 @@ sub is_cached {
 	unless($object) {
 		if($logger) {
 			$logger->debug('is_cached: not found in cache');
+		}
+		return 0;
+	}
+	unless($cache->get($key)) {
+		if($logger) {
+			$logger->debug('is_cached: object is in the cache but not the data');
 		}
 		return 0;
 	}

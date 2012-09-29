@@ -1,5 +1,9 @@
 Revision history for CGI-Buffer
 
+0.65	Sat Sep 29 14:05:17 EDT 2012
+	General tidy up and minor speed improvements
+	Improved handling of cache errors
+
 0.64	Mon Sep 24 17:08:15 EDT 2012
 	Only store in the cache when status is 200
 
