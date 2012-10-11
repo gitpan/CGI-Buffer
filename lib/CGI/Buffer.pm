@@ -20,11 +20,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.65
+Version 0.66
 
 =cut
 
-our $VERSION = '0.65';
+our $VERSION = '0.66';
 
 =head1 SYNOPSIS
 
@@ -78,6 +78,7 @@ our $info;
 our $logger;
 our $status;
 our $script_mtime;
+our $cobject;
 
 BEGIN {
 	use Exporter();
@@ -292,7 +293,6 @@ END {
 
 	if($cache) {
 		my $cache_hash;
-		my $cobject;
 		my $key = _generate_key();
 
 		# Cache unzipped version
@@ -317,23 +317,28 @@ END {
 						modified => $cobject->created_at()
 					});
 				}
-				if($status == 200) {
-					$body = $cache_hash->{'body'};
-					if(!defined($body)) {
-						# Panic
-						$headers = 'Status: 500 Internal Server Error';
-						@o = ('Content-type: text/plain');
-						$body = "Can't retrieve body for key $key, cache_hash contains:\n";
-						foreach my $k (keys %{$cache_hash}) {
-							$body .= "\t$k\n";
-						}
-						warn($body);
-						$cache->remove($key);
-						carp "Can't retrieve body for key $key";
-						$send_body = 0;
+			}
+			if($send_body && ($status == 200)) {
+				$body = $cache_hash->{'body'};
+				if(!defined($body)) {
+					# Panic
+					$headers = 'Status: 500 Internal Server Error';
+					@o = ('Content-type: text/plain');
+					$body = "Can't retrieve body for key $key, cache_hash contains:\n";
+					foreach my $k (keys %{$cache_hash}) {
+						$body .= "\t$k\n";
 					}
+					warn($body);
+					$cache->remove($key);
+					carp "Can't retrieve body for key $key";
+					$send_body = 0;
+					$status = 500;
 				}
-				if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body) {
+			}
+			if($send_body && $ENV{'SERVER_PROTOCOL'} &&
+			  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
+			  ($status == 200)) {
+				if($ENV{'HTTP_IF_NONE_MATCH'}) {
 					if(!defined($etag)) {
 						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 					}
@@ -422,12 +427,16 @@ END {
 					$cache_hash->{'etag'} = $etag
 				}
 				$cache->set($key, Storable::freeze($cache_hash), $cache_age);
+				if($generate_last_modified) {
+					$cobject = $cache->get_object($key);
+					if(defined($cobject)) {
+						push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
+					} else {
+						push @o, "Last-Modified: " . HTTP::Date::time2str(time);
+					}
+				}
 			}
 			push @o, "X-CGI-Buffer-$VERSION: Miss";
-			if($generate_last_modified) {
-				$cobject = $cache->get_object($key);
-				push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
-			}
 		}
 		# We don't need it any more, so give Perl a chance to
 		# tidy it up seeing as we're in the destructor
@@ -502,6 +511,7 @@ sub _generate_key {
 
 	# TODO: Use CGI::Lingua so that different languages are stored in
 	#	different caches
+	#	Mobile/web/robot pages should be stored in different caches
 	if($ENV{'HTTP_COOKIE'}) {
 		# Different states of the client are stored in different caches
 		return $info->domain_name() . '/' . $info->script_name() . '/' . $info->as_string() . "/$ENV{HTTP_COOKIE}";
@@ -674,11 +684,8 @@ sub is_cached {
 	if($logger) {
 		$logger->debug("is_cached: key = $key");
 	}
-	# FIXME: It is remotely possible that this will succeed, and the
-	#	cache expires before the above get, causing the get to possibly
-	#	fail
-	my $object = $cache->get_object($key);
-	unless($object) {
+	$cobject = $cache->get_object($key);
+	unless($cobject) {
 		if($logger) {
 			$logger->debug('is_cached: not found in cache');
 		}
@@ -688,6 +695,7 @@ sub is_cached {
 		if($logger) {
 			$logger->debug('is_cached: object is in the cache but not the data');
 		}
+		$cobject = undef;
 		return 0;
 	}
 
@@ -700,13 +708,15 @@ sub is_cached {
 		}
 		# Can't determine the age. Play it safe an assume we're not
 		# cached
+		$cobject = undef;
 		return 0;
 	}
-	if($age > $object->created_at()) {
+	if($age > $cobject->created_at()) {
 		# Script has been updated so it may produce different output
 		if($logger) {
 			$logger->debug('Script has been updated');
 		}
+		$cobject = undef;
 		return 0;
 	}
 	if($logger) {

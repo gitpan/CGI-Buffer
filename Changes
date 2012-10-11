@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.66	Thu Oct 11 12:11:11 EDT 2012
+	Add sanity check.
+	Only add Last-Modified when statis is 200
+	Don't get the object from the cache twice
+
 0.65	Sat Sep 29 14:05:17 EDT 2012
 	General tidy up and minor speed improvements
 	Improved handling of cache errors
