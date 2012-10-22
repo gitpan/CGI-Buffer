@@ -1,5 +1,10 @@
 Revision history for CGI-Buffer
 
+0.67	Sun Oct 21 23:00:13 EDT 2012
+	Remove spaces after <body>.
+	Fix removal of spaces between </head> and <body>.
+	Better handling of no body, e.g. when redirecting using Location
+
 0.66	Thu Oct 11 12:11:11 EDT 2012
 	Add sanity check.
 	Only add Last-Modified when statis is 200

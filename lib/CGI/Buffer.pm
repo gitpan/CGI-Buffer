@@ -20,11 +20,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.66
+Version 0.67
 
 =cut
 
-our $VERSION = '0.66';
+our $VERSION = '0.67';
 
 =head1 SYNOPSIS
 
@@ -118,7 +118,10 @@ END {
 	}
 
 	if(defined($body) && (length($body) == 0)) {
+		# E.g. if header of Location is given with no body, for
+		#	redirection
 		$body = undef;
+		$send_body = 0;	# Don't try to retrieve it
 	} elsif(defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
 		if($optimise_content) {
 			# require HTML::Clean;
@@ -135,7 +138,7 @@ END {
 			$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
 			$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
 			$body =~ s/<html>\s+<head>/<html><head>/gis;
-			$body =~ s/<head>\s+<body>/<head><body>/gis;
+			$body =~ s/\s*<\/head>\s+<body>\s*/<\/head><body>/gis;
 			$body =~ s/\s+\<\/html/\<\/html/is;
 			$body =~ s/\s+\<\/body/\<\/body/is;
 			$body =~ s/\n\s+|\s+\n/\n/g;
@@ -297,13 +300,15 @@ END {
 
 		# Cache unzipped version
 		if(!defined($body)) {
-			$cobject = $cache->get_object($key);
-			if(defined($cobject)) {
-				$cache_hash = Storable::thaw($cobject->value());
-				$headers = $cache_hash->{'headers'};
-				@o = ("X-CGI-Buffer-$VERSION: Hit");
-			} else {
-				carp "Error retrieving data for key $key";
+			if($send_body) {
+				$cobject = $cache->get_object($key);
+				if(defined($cobject)) {
+					$cache_hash = Storable::thaw($cobject->value());
+					$headers = $cache_hash->{'headers'};
+					@o = ("X-CGI-Buffer-$VERSION: Hit");
+				} else {
+					carp "Error retrieving data for key $key";
+				}
 			}
 
 			# Nothing has been output yet, so we can check if it's
@@ -512,11 +517,13 @@ sub _generate_key {
 	# TODO: Use CGI::Lingua so that different languages are stored in
 	#	different caches
 	#	Mobile/web/robot pages should be stored in different caches
+	my $key = $info->domain_name() . '::' . $info->script_name() . '::' . $info->as_string();
 	if($ENV{'HTTP_COOKIE'}) {
 		# Different states of the client are stored in different caches
-		return $info->domain_name() . '/' . $info->script_name() . '/' . $info->as_string() . "/$ENV{HTTP_COOKIE}";
+		$key .= '::' . $ENV{HTTP_COOKIE};
 	}
-	return $info->domain_name() . '/' . $info->script_name() . '/' . $info->as_string();
+	$key =~ s/\//::/g;
+	return $key;
 }
 
 =head2 init
@@ -682,7 +689,7 @@ sub is_cached {
 	my $key = _generate_key();
 
 	if($logger) {
-		$logger->debug("is_cached: key = $key");
+		$logger->debug("is_cached: looking for key = $key");
 	}
 	$cobject = $cache->get_object($key);
 	unless($cobject) {
