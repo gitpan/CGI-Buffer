@@ -28,6 +28,5 @@ t/prereq.t
 t/snippets.t
 t/spelling.t
 t/too_late.t
-t/unused.t
 t/vars.t
 META.json                                Module JSON meta-data (added by MakeMaker)

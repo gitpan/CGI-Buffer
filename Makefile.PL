@@ -31,7 +31,7 @@ WriteMakefile(
 	'File::Spec' => 0,
 	'Time::localtime' => 0,
 	'HTML::Lint' => 0,
-	'Storable' => 0,
+	'Storable' => 2.39,	# Latest version
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'CGI-Buffer-*' },

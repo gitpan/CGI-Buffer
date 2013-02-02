@@ -31,7 +31,12 @@ CACHED: {
 
 		my $cache = CHI->new(driver => 'Memory', datastore => {});
 
-		CGI::Buffer::set_options(cache => $cache, cache_key => 'xyzzy');
+		# On some platforms it's failing - find out why
+		CGI::Buffer::init({
+			cache => $cache,
+			cache_key => 'xyzzy',
+			logger => MyLogger->new()
+		});
 		ok(!CGI::Buffer::is_cached());
 
 		my $c;
@@ -43,4 +48,22 @@ CACHED: {
 		$cache->set('xyzzy', Storable::freeze($c));
 		ok(CGI::Buffer::is_cached());
 	}
+}
+
+# On some platforms it's failing - find out why
+package MyLogger;
+
+sub new {
+	my ($proto, %args) = @_;
+
+	my $class = ref($proto) || $proto;
+
+	return bless { }, $class;
+}
+
+sub debug {
+	my $self = shift;
+	my $message = shift;
+
+	::diag($message);
 }

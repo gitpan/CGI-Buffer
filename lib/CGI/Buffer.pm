@@ -20,11 +20,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.67
+Version 0.68
 
 =cut
 
-our $VERSION = '0.67';
+our $VERSION = '0.68';
 
 =head1 SYNOPSIS
 
@@ -67,6 +67,7 @@ But that's simple:
 use constant MIN_GZIP_LEN => 32;
 
 our $generate_etag = 1;
+our $generate_304 = 1;
 our $generate_last_modified = 1;
 our $compress_content = 1;
 our $optimise_content = 0;
@@ -121,7 +122,10 @@ END {
 		# E.g. if header of Location is given with no body, for
 		#	redirection
 		$body = undef;
-		$send_body = 0;	# Don't try to retrieve it
+		if($cache) {
+			# Don't try to retrieve it below from the cache
+			$send_body = 0;
+		}
 	} elsif(defined($content_type[0]) && (lc($content_type[0]) eq 'text') && (lc($content_type[1]) =~ /^html/) && defined($body)) {
 		if($optimise_content) {
 			# require HTML::Clean;
@@ -254,7 +258,7 @@ END {
 		# encode to avoid "Wide character in subroutine entry"
 		$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 		push @o, "ETag: $etag";
-		if ($ENV{'HTTP_IF_NONE_MATCH'}) {
+		if($ENV{'HTTP_IF_NONE_MATCH'} && $generate_304) {
 			if(($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
 				push @o, "Status: 304 Not Modified";
 				$send_body = 0;
@@ -315,10 +319,10 @@ END {
 			# OK to send 304 if possible
 			if($send_body && $ENV{'SERVER_PROTOCOL'} &&
 			  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
-			  ($status == 200)) {
+			  $generate_304 && ($status == 200)) {
 				if($ENV{'HTTP_IF_MODIFIED_SINCE'}) {
 					_check_modified_since({
-						since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
+						since => $ENV{'HTTP_IF_MODIFIED_SINCE'},
 						modified => $cobject->created_at()
 					});
 				}
@@ -347,7 +351,7 @@ END {
 					if(!defined($etag)) {
 						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 					}
-					if ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
+					if(($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && $generate_304) {
 						push @o, "Status: 304 Not Modified";
 						$status = 304;
 						$send_body = 0;
@@ -368,29 +372,32 @@ END {
 					}
 				}
 			}
-			if($cobject) {
-				if($ENV{'HTTP_IF_MODIFIED_SINCE'} && ($status != 304)) {
-					_check_modified_since({
-						since => HTTP::Date::str2time($ENV{'HTTP_IF_MODIFIED_SINCE'}),
-						modified => $cobject->created_at()
-					});
-				} elsif($generate_last_modified) {
-					push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
-				}
-			}
+			my $cannot_304 = !$generate_304;
 			if(defined($headers) && ($headers =~ /^ETag: "([a-z0-9]{32})"/m)) {
 				$etag = $1;
 			} else {
 				$etag = $cache_hash->{'etag'};
 			}
-			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304)) {
+			if($ENV{'HTTP_IF_NONE_MATCH'} && $send_body && ($status != 304) && $generate_304) {
 				if(defined($etag) && ($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
 					push @o, "Status: 304 Not Modified";
 					$send_body = 0;
 					$status = 304;
+				} else {
+					$cannot_304 = 1;
 				}
 			} elsif($generate_etag && defined($etag) && ((!defined($headers)) || ($headers !~ /^ETag: /m))) {
 				push @o, "ETag: $etag";
+			}
+			if($cobject) {
+				if($ENV{'HTTP_IF_MODIFIED_SINCE'} && ($status != 304) && (!$cannot_304)) {
+					_check_modified_since({
+						since => $ENV{'HTTP_IF_MODIFIED_SINCE'},
+						modified => $cobject->created_at()
+					});
+				} elsif($generate_last_modified) {
+					push @o, "Last-Modified: " . HTTP::Date::time2str($cobject->created_at());
+				}
 			}
 		} else {
 			if($status == 200) {
@@ -485,9 +492,19 @@ END {
 }
 
 sub _check_modified_since {
+	if(!$generate_304) {
+		return;
+	}
 	my $params = shift;
 
-	my $s = $$params{since};
+	if(!defined($$params{since})) {
+		return;
+	}
+	my $s = HTTP::Date::str2time($$params{since});
+	if(defined($s)) {
+		# IF_MODIFIED_SINCE isn't a valid data
+		return;
+	}
 
 	my $age = _my_age();
 	unless(defined($age)) {
@@ -520,7 +537,7 @@ sub _generate_key {
 	my $key = $info->domain_name() . '::' . $info->script_name() . '::' . $info->as_string();
 	if($ENV{'HTTP_COOKIE'}) {
 		# Different states of the client are stored in different caches
-		$key .= '::' . $ENV{HTTP_COOKIE};
+		$key .= '::' . $ENV{'HTTP_COOKIE'};
 	}
 	$key =~ s/\//::/g;
 	return $key;
@@ -531,7 +548,7 @@ sub _generate_key {
 Set various options and override default values.
 
     # Put this toward the top of your program before you do anything
-    # By default, generate_tag and compress_content are both ON and
+    # By default, generate_tag, generate_304 and compress_content are ON,
     # optimise_content and lint_content are OFF.  Set optimise_content to 2 to
     # do aggressive JavaScript optimisations which may fail.
     use CGI::Buffer;
@@ -541,9 +558,10 @@ Set various options and override default values.
 	compress_content => 1,	# if gzip the output
 	optimise_content => 0,	# optimise your program's HTML, CSS and JavaScript
 	cache => CHI->new(driver => 'File'),	# cache requests
-	cache_key => 'string',		# key for the cache
+	cache_key => 'string',	# key for the cache
 	logger => $logger,
 	lint->content => 0,	# Pass through HTML::Lint
+	generate_304 => 1,	# Generate 304: Not modified
     );
 
 If no cache_key is given, one will be generated which may not be unique.
@@ -593,6 +611,9 @@ sub init {
 	}
 	if(defined($params{logger})) {
 		$logger = $params{logger};
+	}
+	if(defined($params{generate_304})) {
+		$generate_304 = $params{generate_304};
 	}
 
 	# Unsafe options - must be called before output has been started
@@ -775,6 +796,11 @@ Nigel Horne, C<< <njh at bandsman.co.uk> >>
 
 =head1 BUGS
 
+CGI::Buffer should be safe even in scripts which produce lots of different
+output, e.g. e-commerce situations.
+On such pages, however, I strongly urge to setting generate_304 to 0 and
+sending the HTTP header "Cache-Control: no-cache".
+
 When using L<Template>, ensure that you don't use it to output to STDOUT,
 instead you will need to capture into a variable and print that.
 For example:
@@ -852,7 +878,7 @@ The licence for cgi_buffer is:
 
     This software is provided 'as is' without warranty of any kind."
 
-The reset of the program is Copyright 2011-2012 Nigel Horne,
+The reset of the program is Copyright 2011-2013 Nigel Horne,
 and is released under the following licence: GPL
 
 =cut
