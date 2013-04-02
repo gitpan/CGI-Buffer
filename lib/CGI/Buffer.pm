@@ -20,11 +20,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.68
+Version 0.69
 
 =cut
 
-our $VERSION = '0.68';
+our $VERSION = '0.69';
 
 =head1 SYNOPSIS
 
@@ -141,8 +141,10 @@ END {
 			$body =~ s/\s+<\/div\>/\<\/div\>/gis;	# Remove spaces before </div>
 			$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
 			$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
-			$body =~ s/<html>\s+<head>/<html><head>/gis;
-			$body =~ s/\s*<\/head>\s+<body>\s*/<\/head><body>/gis;
+			$body =~ s/<html>\s+<head>/<html><head>/is;
+			$body =~ s/\s*<\/head>\s+<body>\s*/<\/head><body>/is;
+			$body =~ s/<html>\s+<body>/<html><body>/is;
+			$body =~ s/<body>\s+/<body>/is;
 			$body =~ s/\s+\<\/html/\<\/html/is;
 			$body =~ s/\s+\<\/body/\<\/body/is;
 			$body =~ s/\n\s+|\s+\n/\n/g;
@@ -158,17 +160,17 @@ END {
 			$body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
 			$body =~ s/\<br\>\s/\<br\>/gi;
 			$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
-			$body =~ s/\s+\<p\>/\<p\>/gi;
-			$body =~ s/\s+\<script/\<script/gi;
-			$body =~ s/\<td\>\s+/\<td\>/gi;
-			$body =~ s/\s+\<a\s+href="(.+?)"\>\s+/ <a href="$1">/gis;
-			$body =~ s/\s*<a\s+href=\s+"(.+?)"\>/ <a href="$1">/gis;
 			$body =~ s/\s\s/ /gs;
-			$body =~ s/\s+<hr>/<hr>/gis;
-			$body =~ s/<hr>\s+/<hr>/gis;
-			$body =~ s/<\/li>\s+<li>/<\/li><li>/gis;
-			$body =~ s/<\/li>\s+<\/ul>/<\/li><\/ul>/gis;
-			$body =~ s/<ul>\s+<li>/<ul><li>/gis;
+			$body =~ s/\s\<p\>/\<p\>/gi;
+			$body =~ s/\s\<script/\<script/gi;
+			$body =~ s/\<td\>\s/\<td\>/gi;
+			$body =~ s/\s\<a\s+href="(.+?)"\>\s/ <a href="$1">/gis;
+			$body =~ s/\s*<a\s+href=\s"(.+?)"\>/ <a href="$1">/gis;
+			$body =~ s/\s<hr>/<hr>/gis;
+			$body =~ s/<hr>\s/<hr>/gis;
+			$body =~ s/<\/li>\s<li>/<\/li><li>/gis;
+			$body =~ s/<\/li>\s<\/ul>/<\/li><\/ul>/gis;
+			$body =~ s/<ul>\s<li>/<ul><li>/gis;
 
 			# If we're on http://www.example.com and have a link
 			# to http://www.example.com/foo/bar.htm, change the
@@ -501,13 +503,13 @@ sub _check_modified_since {
 		return;
 	}
 	my $s = HTTP::Date::str2time($$params{since});
-	if(defined($s)) {
+	if(!defined($s)) {
 		# IF_MODIFIED_SINCE isn't a valid data
 		return;
 	}
 
 	my $age = _my_age();
-	unless(defined($age)) {
+	if(!defined($age)) {
 		return;
 	}
 	if($age > $s) {

@@ -11,7 +11,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 80;
+use Test::More tests => 82;
 use File::Temp;
 use Compress::Zlib;
 # use Test::NoWarnings;	# HTML::Clean has them
@@ -57,7 +57,7 @@ OUTPUT: {
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY>    Hello, world</BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML>\\n<BODY>\\n\\t    Hello, world</BODY>\\n</HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -72,7 +72,7 @@ OUTPUT: {
 	$length = $1;
 	ok(defined($length));
 	# Extra spaces should have been removed
-	ok($output =~ /<HTML><BODY> Hello, world<\/BODY><\/HTML>/mi);
+	ok($output =~ /<HTML><BODY>Hello, world<\/BODY><\/HTML>/mi);
 	ok($output !~ /^Content-Encoding: gzip/m);
 	ok($output !~ /^ETag: "/m);
 
@@ -350,16 +350,16 @@ OUTPUT: {
 	$ENV{'REQUEST_METHOD'} = 'GET';
 
 	$tmp = File::Temp->new();
+	print $tmp "use CGI::Buffer;\n";
 	if($ENV{'PERL5LIB'}) {
 		foreach (split(':', $ENV{'PERL5LIB'})) {
 			print $tmp "use lib '$_';\n";
 		}
 	}
-	print $tmp "use CGI::Buffer;\n";
 	print $tmp "CGI::Buffer::set_options(optimise_content => 1, generate_304 => 0);\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY><TABLE><TR><TD>foo</TD>  <TD>bar</TD></TR></TABLE></BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML><BODY><TABLE><TR><TD>foo</TD>\\t  <TD>bar</TD></TR></TABLE></BODY></HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 
@@ -370,6 +370,7 @@ OUTPUT: {
 
 	close $tmp;
 
+	ok(defined($output));
 	ok($output =~ /<TD>foo<\/TD><TD>bar<\/TD>/mi);
 	ok($output !~ /^Status: 304 Not Modified/mi);
 	ok($output =~ /^Content-Length:\s+(\d+)/m);
@@ -381,6 +382,7 @@ OUTPUT: {
 	ok(defined($etag));
 
 	($headers, $body) = split /\r?\n\r?\n/, $output, 2;
+	ok(defined($length));
 	ok(length($body) eq $length);
 	ok(length($body) > 0);
 
@@ -447,7 +449,7 @@ OUTPUT: {
 	print $tmp "use CGI::Buffer { optimise_content => 1, generate_etag => 0 };\n";
 	print $tmp "print \"Content-type: text/html; charset=ISO-8859-1\";\n";
 	print $tmp "print \"\\n\\n\";\n";
-	print $tmp "print \"<HTML><BODY><TABLE><TR><TD>foo</TD>  <TD>bar</TD></TR></TABLE></BODY></HTML>\\n\";\n";
+	print $tmp "print \"<HTML><BODY><TABLE><TR><TD>foo</TD>   <TD>bar</TD></TR></TABLE></BODY></HTML>\\n\";\n";
 
 	open($fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
 

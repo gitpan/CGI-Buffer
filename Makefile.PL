@@ -14,7 +14,7 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
 	'Carp' => 0,
-	'CGI::Info' => 0.11,	# Needs fixed as_string and protocol
+	'CGI::Info' => 0.42,	# Minimum version for Cygwin
 	'CSS::Packer' => 0,
 	'Compress::Zlib' => 0,
 	'Digest::MD5' => 0,
@@ -31,7 +31,7 @@ WriteMakefile(
 	'File::Spec' => 0,
 	'Time::localtime' => 0,
 	'HTML::Lint' => 0,
-	'Storable' => 2.39,	# Latest version
+	'Storable' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'CGI-Buffer-*' },

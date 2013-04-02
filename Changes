@@ -1,12 +1,19 @@
 Revision history for CGI-Buffer
 
+0.69	Tue Apr  2 14:59:59 EDT 2013
+	Bumped minimum version of CGI::Info, needed for Cygwin
+	t/output.t: try harder to ensure the "to be tested" version of
+		CGI::Buffer is tested
+	Minor speed improvements
+	_check_modified_since, fix in 0.68 was broken
+
 0.68	Sat Feb  2 12:13:03 EST 2013
 	Handle situation where not modified but Etag is different would
 		generate 304
 	Added generate_304 option (defaults to 1)
 	Handle situation where IF_MODIFIED_SINCE isn't a valid date
-	On some platforms (e.g. Cygwin) t/is_cached is failing, so added
-		debugging to find out why
+	On some platforms (e.g. Cygwin) t/is_cached is failing, so
+		added debugging to find out why
 
 0.67	Sun Oct 21 23:00:13 EDT 2012
 	Remove spaces after <body>.

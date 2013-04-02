@@ -65,5 +65,6 @@ sub debug {
 	my $self = shift;
 	my $message = shift;
 
-	::diag($message);
+	# Enable this for debugging
+	# ::diag($message);
 }
