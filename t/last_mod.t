@@ -4,8 +4,8 @@
 
 use strict;
 use warnings;
-use Test::More;
-use File::Temp;
+use Test::Most;
+use Test::TempDir;
 use DateTime;
 # use Test::NoWarnings;	# HTML::Clean has them
 
@@ -37,7 +37,7 @@ TEST: {
 				skip 'CHI required to test', 1 if $@;
 			}
 
-			my $tmp = File::Temp->new();
+			my ($tmp, $filename) = tempfile();
 			print $tmp "use strict;\n";
 			print $tmp "use CGI::Buffer;\n";
 			print $tmp "use CHI;\n";
@@ -48,7 +48,7 @@ TEST: {
 			print $tmp "print \"\\n\\n\";\n";
 			print $tmp "print \"<HTML><BODY>   Hello World</BODY></HTML>\\n\";\n";
 
-			open(my $fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
+			open(my $fout, '-|', "$^X -Iblib/lib " . $filename);
 
 			my $keep = $_;
 			undef $/;

@@ -4,7 +4,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 4;
+use Test::Most tests => 4;
 use Storable;
 # use Test::NoWarnings;	# HTML::Clean has them
 

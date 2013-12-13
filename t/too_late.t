@@ -4,7 +4,7 @@
 
 use strict;
 use warnings;
-use Test::More;
+use Test::Most;
 # use Test::NoWarnings;	# HTML::Clean has them
 
 eval 'use Test::Carp';

@@ -1,5 +1,20 @@
 Revision history for CGI-Buffer
 
+0.70	Fri 13 Dec 10:24:45 EST 2013
+	Loop optimisation until complete for even smaller output
+	Use Test::Tempdir to create the temporary files when testing
+	# Use RegExp::List to consolidate some scans of the output
+	Ensure logger isn't called after it's been destroyed since that
+		would cause Log4Perl to say it hasn't been initialised
+	Use $cobject->value() rather than $cache->get() to see if the
+		object data is there as well. There were some false
+		negatives
+	Accept HTTP_TE as well as HTTP_ACCEPT_ENCODING
+	Output parsing improvements courtesy of Regexp::List
+	Use Test::Most instead of Test::More
+	Support HTTP_RANGE as well as Range
+	Added more JavaScript optimisations when optimise_level >= 2
+
 0.69	Tue Apr  2 14:59:59 EDT 2013
 	Bumped minimum version of CGI::Info, needed for Cygwin
 	t/output.t: try harder to ensure the "to be tested" version of

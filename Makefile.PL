@@ -25,7 +25,8 @@ WriteMakefile(
 	'IO::String' => 0,
 	'JavaScript::Packer' => 1.006003,
 	# 'Test::Kwalitee' => 0,
-        'Test::More' => 0.82,	# Needs new_ok
+        'Test::Most' => 0,
+	'Test::TempDir' => 0,
 	'DateTime' => 0,
 	'HTTP::Date' => 0,
 	'File::Spec' => 0,

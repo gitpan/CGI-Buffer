@@ -9,8 +9,8 @@
 use strict;
 use warnings;
 
-use Test::More tests => 9;
-use File::Temp;
+use Test::Most tests => 9;
+use Test::TempDir;
 # use Test::NoWarnings;	# HTML::Clean has them
 
 BEGIN {
@@ -53,10 +53,10 @@ OUTPUT: {
 	print "</body>\n";
 EOF
 
-	my $tmp = File::Temp->new();
+	my ($tmp, $filename) = tempfile();
 	print $tmp $input;
 
-	open(my $fout, '-|', "$^X -Iblib/lib " . $tmp->filename);
+	open(my $fout, '-|', "$^X -Iblib/lib " . $filename);
 
 	my $keep = $_;
 	undef $/;

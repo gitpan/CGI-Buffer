@@ -12,7 +12,6 @@ use DateTime;
 use HTTP::Date;
 use File::Spec;
 use Storable;
-use Time::localtime;	# For ctime
 
 =head1 NAME
 
@@ -20,34 +19,35 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.69
+Version 0.70
 
 =cut
 
-our $VERSION = '0.69';
+our $VERSION = '0.70';
 
 =head1 SYNOPSIS
 
 CGI::Buffer verifies the HTML that you produce by passing it through
 C<HTML::Lint>.
 
-CGI::Buffer optimises CGI programs by compressing output to speed up the
-transmission and by nearly seamlessly making use of client and server caches.
+CGI::Buffer optimises CGI programs by compressing output to speed up
+the transmission and by nearly seamlessly making use of client and
+server caches.
 
-To make use of client caches, that is to say to reduce needless calls to
-your server asking for the same data, all you need to do is to include the
-package, and it does the rest.
+To make use of client caches, that is to say to reduce needless calls
+to your server asking for the same data, all you need to do is to
+include the package, and it does the rest.
 
     use CGI::Buffer;
     # ...
 
-To also make use of server caches, that is to say to save regenerating output
-when different clients ask you for the same data, you will need to create a
-cache.
+To also make use of server caches, that is to say to save regenerating
+output when different clients ask you for the same data, you will need
+to create a cache.
 But that's simple:
 
-    use CGI::Buffer;
     use CHI;
+    use CGI::Buffer;
 
     # Put this at the top before you output anything
     CGI::Buffer::init(
@@ -59,6 +59,13 @@ But that's simple:
     }
 
     # ...
+
+If you get errors about Wide characters in print it means that you've
+forgotten to emit pure HTML on non-ascii characters.
+See L<HTML::Entities>.
+As a hack work around you could also remove accents and the like by using
+L<Text::Unidecode>,
+which works well but isn't really what you want.
 
 =head1 SUBROUTINES/METHODS
 
@@ -87,11 +94,18 @@ BEGIN {
 				$body @content_type $etag
 				$send_body @o);
 
-	$CGI::Buffer::buf = IO::String->new;
+	$CGI::Buffer::buf = IO::String->new();
 	$CGI::Buffer::old_buf = select($CGI::Buffer::buf);
 }
 
 END {
+	if($logger) {
+		# This will cause everything to get flushed and prevent
+		# outputs to the logger.  We need to do that now since
+		# if we leave it to Perl to delete later we may get
+		# a mesage that Log4Perl::init() hasn't been called
+		$logger = undef;
+	}
 	select($CGI::Buffer::old_buf);
 	$pos = $CGI::Buffer::buf->getpos;
 	$CGI::Buffer::buf->setpos(0);
@@ -131,46 +145,15 @@ END {
 			# require HTML::Clean;
 			require HTML::Packer;	# Overkill using HTML::Clean and HTML::Packer...
 
-			$body =~ s/\r\n/\n/gs;
-			$body =~ s/\s+\n/\n/gs;
-			$body =~ s/\n+/\n/gs;
-			$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gis;
-			$body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gis;
-			$body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gis;
-			$body =~ s/\<div\>\s+/\<div\>/gis;	# Remove spaces after <div>
-			$body =~ s/\s+<\/div\>/\<\/div\>/gis;	# Remove spaces before </div>
-			$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
-			$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
-			$body =~ s/<html>\s+<head>/<html><head>/is;
-			$body =~ s/\s*<\/head>\s+<body>\s*/<\/head><body>/is;
-			$body =~ s/<html>\s+<body>/<html><body>/is;
-			$body =~ s/<body>\s+/<body>/is;
-			$body =~ s/\s+\<\/html/\<\/html/is;
-			$body =~ s/\s+\<\/body/\<\/body/is;
-			$body =~ s/\n\s+|\s+\n/\n/g;
-			$body =~ s/\t+/ /g;
-			$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
-			$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
-			$body =~ s/\<p\>\s/\<p\>/gi;
-			$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
-			$body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
-			$body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
-			$body =~ s/\<\/td\>\s*\<td\>/\<\/td\>\<td\>/gis;
-			$body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
-			$body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
-			$body =~ s/\<br\>\s/\<br\>/gi;
-			$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
-			$body =~ s/\s\s/ /gs;
-			$body =~ s/\s\<p\>/\<p\>/gi;
-			$body =~ s/\s\<script/\<script/gi;
-			$body =~ s/\<td\>\s/\<td\>/gi;
-			$body =~ s/\s\<a\s+href="(.+?)"\>\s/ <a href="$1">/gis;
-			$body =~ s/\s*<a\s+href=\s"(.+?)"\>/ <a href="$1">/gis;
-			$body =~ s/\s<hr>/<hr>/gis;
-			$body =~ s/<hr>\s/<hr>/gis;
-			$body =~ s/<\/li>\s<li>/<\/li><li>/gis;
-			$body =~ s/<\/li>\s<\/ul>/<\/li><\/ul>/gis;
-			$body =~ s/<ul>\s<li>/<ul><li>/gis;
+			my $oldlength = length($body);
+			my $newlength;
+
+			while(1) {
+				$body = _optimise_content($body);
+				$newlength = length($body);
+				last if ($newlength >= $oldlength);
+				$oldlength = $newlength;
+			}
 
 			# If we're on http://www.example.com and have a link
 			# to http://www.example.com/foo/bar.htm, change the
@@ -214,15 +197,20 @@ END {
 			};
 			if($optimise_content >= 2) {
 				$options->{do_javascript} = 'best';
-				$body =~ s/(<script.*>)\s*<!--/$1/gi;
+				$body =~ s/(<script.*?>)\s*<!--/$1/gi;
 				$body =~ s/\/\/-->\s*<\/script>/<\/script>/gi;
+				$body =~ s/(<script.*?>)\s+/$1/gi;
 			}
 			$body = HTML::Packer->init()->minify(\$body, $options);
 			if($optimise_content >= 2) {
 				# Change document.write("a"); document.write("b")
 				# into document.write("a"+"b");
-				# This will only change one occurance per script
-				$body =~ s/<script\s*?type\s*?=\s*?"text\/javascript"\s*?>(.*?)document\.write\((.+?)\);\s*?document\.write\((.+?)\)/<script type="text\/JavaScript">${1}document.write($2+$3)/igs;
+				while(1) {
+					$body =~ s/<script\s*?type\s*?=\s*?"text\/javascript"\s*?>(.*?)document\.write\((.+?)\);\s*?document\.write\((.+?)\)/<script type="text\/JavaScript">${1}document.write($2+$3)/igs;
+					$newlength = length($body);
+					last if ($newlength >= $oldlength);
+					$oldlength = $newlength;
+				}
 			}
 		}
 		if($lint_content) {
@@ -273,9 +261,10 @@ END {
 	my $unzipped_body = $body;
 
 	if((length($encoding) > 0) && defined($body)) {
-		if($ENV{'Range'} && !$cache) {
+		my $range = $ENV{'Range'} ? $ENV{'Range'} : $ENV{'HTTP_RANGE'};
+		if($range && !$cache) {
 			# TODO: Partials
-			if($ENV{'Range'} =~ /^bytes=(\d*)-(\d*)/) {
+			if($range =~ /^bytes=(\d*)-(\d*)/) {
 				if($1 && $2) {
 					$body = substr($body, $1, $2-$1);
 				} elsif($1) {
@@ -484,9 +473,33 @@ END {
 		push @o, $body;
 	}
 
-	if(scalar @o) {
+	# XXXXXXXXXXXXXXXXXXXXXXX
+	if(0) {
+		# This code helps to debug Wide character prints
+		my $wideCharWarningsIssued = 0;
+		my $widemess;
+		$SIG{__WARN__} = sub {
+			$wideCharWarningsIssued += "@_" =~ /Wide character in .../;
+			$widemess = "@_";
+			CORE::warn(@_);     # call the builtin warn as usual
+		};
+
+		if(scalar @o) {
+			print join("\r\n", @o);
+			if($wideCharWarningsIssued) {
+				my $mess = join("\r\n", @o);
+				$mess =~ /[^\x00-\xFF]/;
+				open(my $fout, '>>', '/tmp/NJH');
+				print $fout "$widemess:\n";
+				print $fout $mess;
+				print $fout 'x' x 40 . "\n";
+				close $fout;
+			}
+		}
+	} elsif(scalar @o) {
 		print join("\r\n", @o);
 	}
+	# XXXXXXXXXXXXXXXXXXXXXXX
 
 	if((!$send_body) || !defined($body)) {
 		print "\r\n\r\n";
@@ -524,6 +537,59 @@ sub _check_modified_since {
 	}
 }
 
+sub _optimise_content {
+	my $body = shift;
+
+	# Regexp::List - wow!
+	$body =~ s/(\s+|\r)\n|\n\+/\n/gs;
+	# $body =~ s/\r\n/\n/gs;
+	# $body =~ s/\s+\n/\n/gs;
+	# $body =~ s/\n+/\n/gs;
+	$body =~ s/\<\/option\>\s\<option/\<\/option\>\<option/gis;
+	$body =~ s/\<\/div\>\s\<div/\<\/div\>\<div/gis;
+	# $body =~ s/\<\/p\>\s\<\/div/\<\/p\>\<\/div/gis;
+	# $body =~ s/\<div\>\s+/\<div\>/gis;	# Remove spaces after <div>
+	$body =~ s/(<div>\s+|\s+<div>)/<div>/gis;
+	$body =~ s/\s+<\/div\>/\<\/div\>/gis;	# Remove spaces before </div>
+	$body =~ s/\s+\<p\>|\<p\>\s+/\<p\>/im;  # TODO <p class=
+	$body =~ s/\s+\<\/p\>|\<\/p\>\s+/\<\/p\>/gis;
+	$body =~ s/<html>\s+<head>/<html><head>/is;
+	$body =~ s/\s*<\/head>\s+<body>\s*/<\/head><body>/is;
+	$body =~ s/<html>\s+<body>/<html><body>/is;
+	$body =~ s/<body>\s+/<body>/is;
+	$body =~ s/\s+\<\/html/\<\/html/is;
+	$body =~ s/\s+\<\/body/\<\/body/is;
+	$body =~ s/\n\s+|\s+\n/\n/g;
+	$body =~ s/\t+/ /g;
+	$body =~ s/\s(\<.+?\>\s\<.+?\>)/$1/;
+	$body =~ s/(\<.+?\>\s\<.+?\>)\s/$1/;
+	$body =~ s/\<p\>\s/\<p\>/gi;
+	$body =~ s/\<\/p\>\s\<p\>/\<\/p\>\<p\>/gi;
+	$body =~ s/\<\/tr\>\s\<tr\>/\<\/tr\>\<tr\>/gi;
+	$body =~ s/\<\/td\>\s\<\/tr\>/\<\/td\>\<\/tr\>/gi;
+	$body =~ s/\<\/td\>\s*\<td\>/\<\/td\>\<td\>/gis;
+	$body =~ s/\<\/tr\>\s\<\/table\>/\<\/tr\>\<\/table\>/gi;
+	$body =~ s/\<br\s?\/?\>\s?\<p\>/\<p\>/gi;
+	$body =~ s/\<br\>\s/\<br\>/gi;
+	$body =~ s/\<br\s?\/\>\s/\<br \/\>/gi;
+	$body =~ s/ +/ /gs;	# Remove duplicate space, don't use \s+ it breaks JavaScript
+	$body =~ s/\s\<p\>/\<p\>/gi;
+	$body =~ s/\s\<script/\<script/gi;
+	$body =~ s/(<script>\s+|\s+<script>)/<script>/gis;
+	$body =~ s/(<\/script>\s+|\s+<\/script>)/<\/script>/gis;
+	$body =~ s/\<td\>\s/\<td\>/gi;
+	$body =~ s/\s\<a\s+href="(.+?)"\>\s/ <a href="$1">/gis;
+	$body =~ s/\s*<a\s+href=\s"(.+?)"\>/ <a href="$1">/gis;
+	$body =~ s/(\s*<hr>\s+|\s+<hr>\s*)/<hr>/gis;
+	# $body =~ s/\s<hr>/<hr>/gis;
+	# $body =~ s/<hr>\s/<hr>/gis;
+	$body =~ s/<\/li>\s<li>/<\/li><li>/gis;
+	$body =~ s/<\/li>\s<\/ul>/<\/li><\/ul>/gis;
+	$body =~ s/<ul>\s<li>/<ul><li>/gis;
+
+	return $body;
+}
+
 # Create a key for the cache
 sub _generate_key {
 	if($cache_key) {
@@ -533,8 +599,8 @@ sub _generate_key {
 		$info = CGI::Info->new();
 	}
 
-	# TODO: Use CGI::Lingua so that different languages are stored in
-	#	different caches
+	# TODO: Use CGI::Lingua so that different languages are stored
+	#	in different caches
 	#	Mobile/web/robot pages should be stored in different caches
 	my $key = $info->domain_name() . '::' . $info->script_name() . '::' . $info->as_string();
 	if($ENV{'HTTP_COOKIE'}) {
@@ -570,7 +636,7 @@ If no cache_key is given, one will be generated which may not be unique.
 The cache_key should be a unique value dependent upon the values set by the
 browser.
 
-The cache object will be an object that understands get(),
+The cache object will be an object that understands get_object(),
 set(), remove() and created_at() messages, such as an L<CHI> object.
 
 Logger will be an object that understands debug() such as an L<Log::Log4perl>
@@ -682,6 +748,7 @@ the result stored in the cache.
     # values match something in the cache
     use CGI::Info;
     use CGI::Lingua;
+    use CGI::Buffer;
 
     my $i = CGI::Info->new();
     my $l = CGI::Lingua->new(supported => ['en']);
@@ -721,9 +788,9 @@ sub is_cached {
 		}
 		return 0;
 	}
-	unless($cache->get($key)) {
+	unless($cobject->value($key)) {
 		if($logger) {
-			$logger->debug('is_cached: object is in the cache but not the data');
+			$logger->warn('is_cached: object is in the cache but not the data');
 		}
 		$cobject = undef;
 		return 0;
@@ -774,9 +841,10 @@ sub _my_age {
 }
 
 sub _should_gzip {
-	if($compress_content && $ENV{'HTTP_ACCEPT_ENCODING'}) {
+	if($compress_content && ($ENV{'HTTP_ACCEPT_ENCODING'} || $ENV{'HTTP_TE'})) {
+		my $accept = lc($ENV{'HTTP_ACCEPT_ENCODING'} ? $ENV{'HTTP_ACCEPT_ENCODING'} : $ENV{'HTTP_TE'});
 		foreach my $encoding ('x-gzip', 'gzip') {
-			$_ = lc($ENV{'HTTP_ACCEPT_ENCODING'});
+			$_ = $accept;
 			if($content_type[0]) {
 				if (m/$encoding/i && (lc($content_type[0]) eq 'text')) {
 					return $encoding;
@@ -812,18 +880,27 @@ For example:
     print $output;
 
 Can produce buggy JavaScript if you use the <!-- HIDING technique.
-This is a bug in L<<JavaScript::Packer>>, not CGI::Buffer.
+This is a bug in L<JavaScript::Packer>, not CGI::Buffer.
 See https://github.com/nevesenin/javascript-packer-perl/issues/1#issuecomment-4356790
 
-Mod_deflate can confuse this when compressing output. Ensure that deflation is
-off for .pl files:
+Mod_deflate can confuse this when compressing output.
+Ensure that deflation is off for .pl files:
 
     SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|pl)$ no-gzip dont-vary
 
-If you request compressed output then uncompressed output (or vice versa)
-on input that produces the same output, the status will be 304. The letter of
-the spec says that's wrong, so I'm noting it here, but in practice you should
-not see this happen or have any difficulties because of it.
+If you request compressed output then uncompressed output (or vice
+versa) on input that produces the same output, the status will be 304.
+The letter of the spec says that's wrong, so I'm noting it here, but
+in practice you should not see this happen or have any difficulties
+because of it.
+
+CGI::Buffer is not compatible with FastCGI.
+
+I advise adding CGI::Buffer as the last use statement so that it is
+cleared up first.  In particular it should be loaded after
+L<Log::Log4Perl>, if you're using that, so that any messages it
+produces are printed after the HTTP headers have been sent by
+CGI::Buffer;
 
 Please report any bugs or feature requests to C<bug-cgi-buffer at rt.cpan.org>,
 or through the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=CGI-Buffer>.
@@ -839,7 +916,6 @@ HTML::Packer, HTML::Lint
 You can find documentation for this module with the perldoc command.
 
     perldoc CGI::Buffer
-
 
 You can also look for information at:
 
@@ -866,8 +942,8 @@ L<http://search.cpan.org/dist/CGI-Buffer/>
 
 =head1 ACKNOWLEDGEMENTS
 
-The inspiration and code for some if this is cgi_buffer by Mark Nottingham:
-http://www.mnot.net/cgi_buffer.
+The inspiration and code for some if this is cgi_buffer by Mark
+Nottingham: http://www.mnot.net/cgi_buffer.
 
 =head1 LICENSE AND COPYRIGHT
 
