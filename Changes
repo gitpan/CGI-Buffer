@@ -1,5 +1,8 @@
 Revision history for CGI-Buffer
 
+0.71	Wed Apr  2 16:50:48 EDT 2014
+	Speed optimisation with some output
+
 0.70	Fri 13 Dec 10:24:45 EST 2013
 	Loop optimisation until complete for even smaller output
 	Use Test::Tempdir to create the temporary files when testing
