@@ -1,7 +1,9 @@
 Changes
+LICENSE
 MANIFEST
 Makefile.PL
 README
+README.md
 ignore.txt
 lib/CGI/Buffer.pm
 META.yml                                 Module meta-data (added by MakeMaker)
@@ -19,6 +21,7 @@ t/js.t
 t/kwalitee.t
 t/last_mod.t
 t/manifest.t
+t/metrics.t
 t/noplan.t
 t/output.t
 t/pod-cm.t

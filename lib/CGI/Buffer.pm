@@ -7,11 +7,7 @@ use Digest::MD5;
 use IO::String;
 use CGI::Info;
 use Carp;
-use Encode;
-use DateTime;
 use HTTP::Date;
-use File::Spec;
-use Storable;
 
 =head1 NAME
 
@@ -19,11 +15,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.71
+Version 0.72
 
 =cut
 
-our $VERSION = '0.71';
+our $VERSION = '0.72';
 
 =head1 SYNOPSIS
 
@@ -87,12 +83,11 @@ our $logger;
 our $status;
 our $script_mtime;
 our $cobject;
+our($buf, $pos, $headers, $header, $body, @content_type, $etag,
+	$send_body, @o);
 
 BEGIN {
-	use Exporter();
-	use vars qw($VERSION $buf $pos $headers $header
-				$body @content_type $etag
-				$send_body @o);
+	# use Exporter();
 
 	$CGI::Buffer::buf = IO::String->new();
 	$CGI::Buffer::old_buf = select($CGI::Buffer::buf);
@@ -160,7 +155,11 @@ END {
 			# link to /foo.bar.htm - there's no need to include
 			# the site name in the link
 			unless(defined($info)) {
-				$info = CGI::Info->new();
+				if($cache) {
+					$info = CGI::Info->new({ cache => $cache });
+				} else {
+					$info = CGI::Info->new();
+				}
 			}
 
 			my $href = $info->host_name();
@@ -242,10 +241,13 @@ END {
 	# Generate the eTag before compressing, since the compressed data
 	# includes the mtime field which changes thus causing a different
 	# Etag to be generated
+	my $encode_loaded;
 	if($ENV{'SERVER_PROTOCOL'} &&
 	  ($ENV{'SERVER_PROTOCOL'} eq 'HTTP/1.1') &&
 	  $generate_etag && defined($body)) {
 		# encode to avoid "Wide character in subroutine entry"
+		require Encode;
+		$encode_loaded = 1;
 		$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 		push @o, "ETag: $etag";
 		if($ENV{'HTTP_IF_NONE_MATCH'} && $generate_304) {
@@ -280,7 +282,11 @@ END {
 			Compress::Zlib->import;
 
 			# Avoid 'Wide character in memGzip'
-			my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
+			unless($encode_loaded) {
+				require Encode;
+				$encode_loaded = 1;
+			}
+			my $nbody = Compress::Zlib::memGzip(\Encode::encode_utf8($body));
 			if(length($nbody) < length($body)) {
 				$body = $nbody;
 				push @o, "Content-Encoding: $encoding";
@@ -290,6 +296,8 @@ END {
 	}
 
 	if($cache) {
+		require Storable;
+
 		my $cache_hash;
 		my $key = _generate_key();
 
@@ -340,6 +348,10 @@ END {
 			  ($status == 200)) {
 				if($ENV{'HTTP_IF_NONE_MATCH'}) {
 					if(!defined($etag)) {
+						unless($encode_loaded) {
+							require Encode;
+							$encode_loaded = 1;
+						}
 						$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 					}
 					if(($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && $generate_304) {
@@ -578,7 +590,7 @@ sub _optimise_content {
 	$body =~ s/(<script>\s+|\s+<script>)/<script>/gis;
 	$body =~ s/(<\/script>\s+|\s+<\/script>)/<\/script>/gis;
 	$body =~ s/\<td\>\s/\<td\>/gi;
-	$body =~ s/\s\<a\s+href="(.+?)"\>\s/ <a href="$1">/gis;
+	$body =~ s/\s*\<a\s+href="(.+?)"\>\s*/ <a href="$1">/gis;
 	$body =~ s/\s*<a\s+href=\s"(.+?)"\>/ <a href="$1">/gis;
 	$body =~ s/(\s*<hr>\s+|\s+<hr>\s*)/<hr>/gis;
 	# $body =~ s/\s<hr>/<hr>/gis;
@@ -596,13 +608,23 @@ sub _generate_key {
 		return $cache_key;
 	}
 	unless(defined($info)) {
-		$info = CGI::Info->new();
+		$info = CGI::Info->new({ cache => $cache });
 	}
 
 	# TODO: Use CGI::Lingua so that different languages are stored
 	#	in different caches
 	#	Mobile/web/robot pages should be stored in different caches
-	my $key = $info->domain_name() . '::' . $info->script_name() . '::' . $info->as_string();
+	my $key;
+	if($info->is_robot()) {
+		$key = 'robot';
+	} elsif($info->is_search()) {
+		$key = 'search';
+	} elsif($info->is_mobile()) {
+		$key = 'mobile';
+	} else {
+		$key = 'web';
+	}
+	$key .= '::' . $info->domain_name() . '::' . $info->script_name() . '::' . $info->as_string();
 	if($ENV{'HTTP_COOKIE'}) {
 		# Different states of the client are stored in different caches
 		$key .= '::' . $ENV{'HTTP_COOKIE'};
@@ -648,7 +670,7 @@ Init allows a reference of the options to be passed. So both of these work:
     use CGI::Buffer;
     #...
     CGI::Buffer::init(generate_etag => 1);
-    CGI::Buffer::init({ generate_etag => 1 });
+    CGI::Buffer::init({ generate_etag => 1, info => CGI::Info->new() });
 
 Generally speaking, passing by reference is better since it copies less on to
 the stack.
@@ -682,6 +704,9 @@ sub init {
 	}
 	if(defined($params{generate_304})) {
 		$generate_304 = $params{generate_304};
+	}
+	if(defined($params{info}) && (!defined($info))) {
+		$info = $params{info};
 	}
 
 	# Unsafe options - must be called before output has been started
@@ -827,7 +852,11 @@ sub _my_age {
 		return $script_mtime;
 	}
 	unless(defined($info)) {
-		$info = CGI::Info->new();
+		if($cache) {
+			$info = CGI::Info->new({ cache => $cache });
+		} else {
+			$info = CGI::Info->new();
+		}
 	}
 
 	my $path = $info->script_path();
@@ -956,7 +985,7 @@ The licence for cgi_buffer is:
 
     This software is provided 'as is' without warranty of any kind."
 
-The reset of the program is Copyright 2011-2014 Nigel Horne,
+The rest of the program is Copyright 2011-2014 Nigel Horne,
 and is released under the following licence: GPL
 
 =cut
