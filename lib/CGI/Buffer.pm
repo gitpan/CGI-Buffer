@@ -15,11 +15,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.72
+Version 0.73
 
 =cut
 
-our $VERSION = '0.72';
+our $VERSION = '0.73';
 
 =head1 SYNOPSIS
 
@@ -366,6 +366,10 @@ END {
 						Compress::Zlib->import;
 
 						# Avoid 'Wide character in memGzip'
+						unless($encode_loaded) {
+							require Encode;
+							$encode_loaded = 1;
+						}
 						my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
 						if(length($nbody) < length($body)) {
 							$body = $nbody;
@@ -617,7 +621,7 @@ sub _generate_key {
 	my $key;
 	if($info->is_robot()) {
 		$key = 'robot';
-	} elsif($info->is_search()) {
+	} elsif($info->is_search_engine()) {
 		$key = 'search';
 	} elsif($info->is_mobile()) {
 		$key = 'mobile';
