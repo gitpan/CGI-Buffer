@@ -15,11 +15,11 @@ CGI::Buffer - Verify and Optimise CGI Output
 
 =head1 VERSION
 
-Version 0.73
+Version 0.74
 
 =cut
 
-our $VERSION = '0.73';
+our $VERSION = '0.74';
 
 =head1 SYNOPSIS
 
@@ -127,7 +127,7 @@ END {
 		}
 	}
 
-	if(defined($body) && (length($body) == 0)) {
+	if(defined($body) && ($body eq '')) {
 		# E.g. if header of Location is given with no body, for
 		#	redirection
 		$body = undef;
@@ -250,11 +250,17 @@ END {
 		$encode_loaded = 1;
 		$etag = '"' . Digest::MD5->new->add(Encode::encode_utf8($body))->hexdigest() . '"';
 		push @o, "ETag: $etag";
-		if($ENV{'HTTP_IF_NONE_MATCH'} && $generate_304) {
-			if(($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) && ($status == 200)) {
+		if($ENV{'HTTP_IF_NONE_MATCH'} && $generate_304 && ($status == 200)) {
+			if($logger) {
+				$logger->debug("Compare $ENV{HTTP_IF_NONE_MATCH} with $etag");
+			}
+			if($etag =~ /\Q$ENV{'HTTP_IF_NONE_MATCH'}\E/) {
 				push @o, "Status: 304 Not Modified";
 				$send_body = 0;
 				$status = 304;
+				if($logger) {
+					$logger->debug('Set status to 304');
+				}
 			}
 		}
 	}
@@ -358,6 +364,9 @@ END {
 						push @o, "Status: 304 Not Modified";
 						$status = 304;
 						$send_body = 0;
+						if($logger) {
+							$logger->debug('Set status to 304');
+						}
 					}
 				}
 				if($send_body && (length($encoding) > 0)) {
@@ -370,7 +379,7 @@ END {
 							require Encode;
 							$encode_loaded = 1;
 						}
-						my $nbody = Compress::Zlib::memGzip(\encode_utf8($body));
+						my $nbody = Compress::Zlib::memGzip(\Encode::encode_utf8($body));
 						if(length($nbody) < length($body)) {
 							$body = $nbody;
 							push @o, "Content-Encoding: $encoding";
@@ -390,6 +399,9 @@ END {
 					push @o, "Status: 304 Not Modified";
 					$send_body = 0;
 					$status = 304;
+					if($logger) {
+						$logger->debug('Set status to 304');
+					}
 				} else {
 					$cannot_304 = 1;
 				}
@@ -446,6 +458,9 @@ END {
 					$cache_hash->{'etag'} = $etag
 				}
 				$cache->set($key, Storable::freeze($cache_hash), $cache_age);
+				if($logger) {
+					$logger->debug("store $key in the cache");
+				}
 				if($generate_last_modified) {
 					$cobject = $cache->get_object($key);
 					if(defined($cobject)) {
@@ -550,6 +565,9 @@ sub _check_modified_since {
 		push @o, "Status: 304 Not Modified";
 		$status = 304;
 		$send_body = 0;
+		if($logger) {
+			$logger->debug('Set status to 304');
+		}
 	}
 }
 
@@ -591,12 +609,12 @@ sub _optimise_content {
 	$body =~ s/ +/ /gs;	# Remove duplicate space, don't use \s+ it breaks JavaScript
 	$body =~ s/\s\<p\>/\<p\>/gi;
 	$body =~ s/\s\<script/\<script/gi;
-	$body =~ s/(<script>\s+|\s+<script>)/<script>/gis;
-	$body =~ s/(<\/script>\s+|\s+<\/script>)/<\/script>/gis;
+	$body =~ s/(<script>\s|\s<script>)/<script>/gis;
+	$body =~ s/(<\/script>\s|\s<\/script>)/<\/script>/gis;
 	$body =~ s/\<td\>\s/\<td\>/gi;
-	$body =~ s/\s*\<a\s+href="(.+?)"\>\s*/ <a href="$1">/gis;
-	$body =~ s/\s*<a\s+href=\s"(.+?)"\>/ <a href="$1">/gis;
-	$body =~ s/(\s*<hr>\s+|\s+<hr>\s*)/<hr>/gis;
+	$body =~ s/\s?\<a\shref="(.+?)"\>\s?/ <a href="$1">/gis;
+	$body =~ s/\s?<a\shref=\s"(.+?)"\>/ <a href="$1">/gis;
+	$body =~ s/(\s?<hr>\s|\s<hr>\s?)/<hr>/gis;
 	# $body =~ s/\s<hr>/<hr>/gis;
 	# $body =~ s/<hr>\s/<hr>/gis;
 	$body =~ s/<\/li>\s<li>/<\/li><li>/gis;
@@ -617,18 +635,7 @@ sub _generate_key {
 
 	# TODO: Use CGI::Lingua so that different languages are stored
 	#	in different caches
-	#	Mobile/web/robot pages should be stored in different caches
-	my $key;
-	if($info->is_robot()) {
-		$key = 'robot';
-	} elsif($info->is_search_engine()) {
-		$key = 'search';
-	} elsif($info->is_mobile()) {
-		$key = 'mobile';
-	} else {
-		$key = 'web';
-	}
-	$key .= '::' . $info->domain_name() . '::' . $info->script_name() . '::' . $info->as_string();
+	my $key = $info->browser_type() . '::' . $info->domain_name() . '::' . $info->script_name() . '::' . $info->as_string();
 	if($ENV{'HTTP_COOKIE'}) {
 		# Different states of the client are stored in different caches
 		$key .= '::' . $ENV{'HTTP_COOKIE'};
@@ -716,27 +723,29 @@ sub init {
 	# Unsafe options - must be called before output has been started
 	my $pos = $CGI::Buffer::buf->getpos;
 	if($pos > 0) {
-		# Must do Carp::carp instead of carp for Test::Carp
-		Carp::carp "Too late to call init, $pos characters have been printed";
+		if(defined($logger)) {
+			$logger->warn("Too late to call init, $pos characters have been printed");
+		} else {
+			# Must do Carp::carp instead of carp for Test::Carp
+			Carp::carp "Too late to call init, $pos characters have been printed";
+		}
 	}
-	unless(defined($ENV{'NO_CACHE'}) || defined($ENV{'NO_STORE'})) {
-		if(defined($params{cache})) {
-			if(defined($ENV{'HTTP_CACHE_CONTROL'})) {
-				my $control = $ENV{'HTTP_CACHE_CONTROL'};
-				unless(($control eq 'no-store') ||
-				       ($control eq 'no-cache') ||
-				       ($control eq 'private')) {
-					if($control =~ /^max-age\s*=\s*(\d+)$/) {
-						# There is an argument not to do this
-						# since one client will affect others
-						$cache_age = "$1 seconds";
-					}
-					$cache = $params{cache};
+	if(defined($params{cache}) && can_cache()) {
+		if(defined($ENV{'HTTP_CACHE_CONTROL'})) {
+			my $control = $ENV{'HTTP_CACHE_CONTROL'};
+			if(defined($logger)) {
+				$logger->debug("cache_control = $control");
+			}
+			if($control =~ /^max-age\s*=\s*(\d+)$/) {
+				# There is an argument not to do this
+				# since one client will affect others
+				$cache_age = "$1 seconds";
+				if(defined($logger)) {
+					$logger->debug("cache_age = $cache_age");
 				}
-			} else {
-				$cache = $params{cache};
 			}
 		}
+		$cache = $params{cache};
 		if(defined($params{cache_key})) {
 			$cache_key = $params{cache_key};
 		}
@@ -764,6 +773,30 @@ sub set_options {
 	init(%params);
 }
 
+=head2 can_cache
+
+Returns true if the server is allowed to store the results locally.
+
+=cut
+
+sub can_cache {
+	if(defined($ENV{'NO_CACHE'}) || defined($ENV{'NO_STORE'})) {
+		return 0;
+	}
+	if(defined($ENV{'HTTP_CACHE_CONTROL'})) {
+		my $control = $ENV{'HTTP_CACHE_CONTROL'};
+		if(defined($logger)) {
+			$logger->debug("cache_control = $control");
+		}
+		if(($control eq 'no-store') ||
+		       ($control eq 'no-cache') ||
+		       ($control eq 'private')) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 =head2 is_cached
 
 Returns true if the output is cached. If it is then it means that all of the
@@ -785,13 +818,15 @@ the result stored in the cache.
     # To use server side caching you must give the cache argument, however
     # the cache_key argument is optional - if you don't give one then one will
     # be generated for you
-    CGI::Buffer::init(
-	cache => CHI->new(driver => 'File'),
-	cache_key => $i->domain_name() . '/' . $i->script_name() . '/' . $i->as_string() . '/' . $l->language()
-    );
-    if(CGI::Buffer::is_cached()) {
-	# Output will be retrieved from the cache and sent automatically
-	exit;
+    if(CGI::Buffer::can_cache()) {
+        CGI::Buffer::init(
+	    cache => CHI->new(driver => 'File'),
+	    cache_key => $i->domain_name() . '/' . $i->script_name() . '/' . $i->as_string() . '/' . $l->language()
+        );
+        if(CGI::Buffer::is_cached()) {
+	    # Output will be retrieved from the cache and sent automatically
+	    exit;
+        }
     }
     # Not in the cache, so now do our expensive computing to generate the
     # results
@@ -802,6 +837,9 @@ the result stored in the cache.
 
 sub is_cached {
 	unless($cache) {
+		if($logger) {
+			$logger->debug("is_cached: cache hasn't been enabled");
+		}
 		return 0;
 	}
 
@@ -813,7 +851,7 @@ sub is_cached {
 	$cobject = $cache->get_object($key);
 	unless($cobject) {
 		if($logger) {
-			$logger->debug('is_cached: not found in cache');
+			$logger->debug('not found in cache');
 		}
 		return 0;
 	}
@@ -843,6 +881,9 @@ sub is_cached {
 			$logger->debug('Script has been updated');
 		}
 		$cobject = undef;
+		# Nothing will be in date and all new searches would miss
+		# anyway, so may as well clear it all
+		$cache->clear();
 		return 0;
 	}
 	if($logger) {
